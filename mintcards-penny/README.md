@@ -3,10 +3,10 @@
 Penny, die Sprachassistentin im Jarvis-Stil für das Pokémon-Karten-Business **Mintcards**.
 
 ```
-Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet → ElevenLabs TTS → Lautsprecher
+Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet (Stream) → Satz für Satz → ElevenLabs TTS (Stream) → Lautsprecher
 ```
 
-**Q + E** gleichzeitig gedrückt halten, sprechen, loslassen, Antwort hören. Penny merkt sich die letzten 10 Turns in `penny_gedaechtnis.json`, auch über Neustarts hinweg.
+**Q + E** gleichzeitig gedrückt halten, sprechen, loslassen, Antwort hören. Penny fängt schon mit dem ersten Satz an zu sprechen, während Claude den Rest noch schreibt. **Q + E während sie spricht** = sie hört sofort auf und du bist dran. Penny merkt sich die letzten 10 Turns in `penny_gedaechtnis.json`, auch über Neustarts hinweg.
 
 ## Dateien
 
@@ -17,9 +17,11 @@ Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet → ElevenLabs TTS → La
 | `audio_input.py` | Push-to-Talk-Aufnahme, WAV im Arbeitsspeicher |
 | `audio_output.py` | Wiedergabe von PCM-Audio |
 | `stt_elevenlabs.py` | Sprache zu Text über ElevenLabs Scribe |
-| `tts_elevenlabs.py` | Text zu Sprache über ElevenLabs und Abspielen |
+| `tts_elevenlabs.py` | Text zu Sprache über ElevenLabs (gestreamt) |
+| `speech.py` | Satzweise Sprachausgabe: zerlegt Claudes Text in Sätze, holt Audio vorab, spielt ohne Pausen, bricht bei Unterbrechung ab |
 | `claude_brain.py` | Gesprächsverlauf plus Aufruf von Claude über die Anthropic API |
 | `smoke_test.py` | API-Test von Claude, TTS und STT ohne Audio-Hardware (auch in GitHub Actions) |
+| `tests/` | Unit-Tests ohne Keys und ohne Soundkarte (`python -m pytest tests`), laufen bei jedem Push |
 | `dashboard.py` | Lokales Web-Dashboard, zeigt Pennys Zustand live |
 | `dashboard/index.html` | Oberfläche des Dashboards |
 | `assistant.py` | Penny als Ganzes: Hirn, Stimme, Status und Ereignisse fürs Dashboard |
@@ -72,8 +74,15 @@ python stt_elevenlabs.py pfad/zu/datei.wav
 # c) Claude: reiner Text-Chat im Terminal, ganz ohne Audio
 python claude_brain.py
 
-# d) TTS: spricht einen Testsatz mit deiner Stimme
+# d) TTS: spricht mehrere Sätze mit deiner Stimme (gestreamt, Satz für Satz)
 python tts_elevenlabs.py "Systeme online. Mintcards steht bereit."
+```
+
+Ohne Keys und ohne Mikrofon lässt sich die Logik jederzeit prüfen:
+
+```bash
+pip install pytest
+python -m pytest tests
 ```
 
 Funktionieren alle vier, die volle Schleife starten.
@@ -96,7 +105,9 @@ python main.py --debug    # zusätzlich Token-Zahlen, Latenzen, Fehlerdetails
 python main.py --ohne-claude  # Test ohne Anthropic-Guthaben: Penny wiederholt nur, was sie verstanden hat
 ```
 
+- Beim Start sagt Penny "Systeme online. Ich bin bereit, Chef." Hörst du das, funktionieren Key, Stimme und Lautsprecher. Abschalten oder eigener Satz: `BEGRUESSUNG` in der `.env`.
 - **Q + E gleichzeitig halten** = aufnehmen, **eine davon loslassen** = senden.
+- **Q + E drücken, während Penny spricht** = sie verstummt sofort. Hältst du weiter, nimmt Penny direkt deine neue Frage auf (nur `PTT_MODE=hold`).
 - Sag **"neues Gespräch"**, um Pennys Gedächtnis zu löschen (leert auch die Datei).
 - **Ctrl+C** beendet.
 
@@ -104,7 +115,7 @@ Im Terminal wird jeder Turn mitgeloggt:
 
 ```
 14:02:11 INFO    [1] DU     (0.8s STT): Was bringt ein Glurak ex aus Obsidianflammen gerade?
-14:02:13 INFO    [1] PENNY  (1.9s Claude): Die Special Illustration Rare liegt grob bei ...
+14:02:13 INFO    [1] PENNY  (0.9s bis zum ersten Ton): Die Special Illustration Rare liegt grob bei ...
 ```
 
 ## Push-to-Talk-Modi
@@ -122,9 +133,20 @@ Hinweise zu `hold`:
 - Andere Taste oder Kombination: `PTT_KEY=f9`, `PTT_KEY=space`, `PTT_KEY=ctrl_r+alt_r` usw. Mehrere Tasten mit `+` verbinden.
 - Im Terminal werden gehaltene Tasten nicht mehr als "qeqeqe" angezeigt (macOS/Linux).
 
+## Stimme
+
+| Einstellung | Wirkung |
+|---|---|
+| `ELEVENLABS_TTS_MODEL=eleven_flash_v2_5` | Standard, schnellste Antwort |
+| `TTS_SPEED=1.05` | Sprechtempo 0.7 bis 1.2 |
+| `STREAMING=nein` | Erst die komplette Antwort, dann sprechen. Langsamer, nur zur Fehlersuche |
+| `BEGRUESSUNG=nein` | Keine Ansage beim Start |
+
+Penny schickt jeden Satz einzeln an ElevenLabs und gibt den vorherigen Satz als Kontext mit, damit die Betonung durchgehend klingt. Den nächsten Satz holt sie schon, während der aktuelle läuft, deshalb gibt es keine Pausen dazwischen. Markdown, Emojis und Gedankenstriche werden vor dem Vorlesen entfernt, `€` und `%` werden zu "Euro" und "Prozent".
+
 ## Dashboard
 
-Mit `python main.py` öffnet sich automatisch das Dashboard unter **http://localhost:8765**. Es zeigt nur Penny: ihren animierten Kern, ob sie gerade zuhört, versteht, nachdenkt oder spricht, und als Untertitel deine Frage bzw. ihre Antwort.
+Mit `python main.py` öffnet sich automatisch das Dashboard unter **http://localhost:8765**. Es zeigt nur Penny: ihren animierten Kern, ob sie gerade zuhört, versteht, nachdenkt oder spricht, und als Untertitel deine Frage bzw. ihre Antwort. Die Antwort erscheint live, Wort für Wort, während Penny spricht.
 
 - `python main.py --kein-dashboard` startet Penny ohne Dashboard.
 - `python main.py --ohne-claude` zeigt das Dashboard live, ganz ohne API-Guthaben.
@@ -149,9 +171,12 @@ Penny speichert den Verlauf nach jeder Antwort in `penny_gedaechtnis.json` im Pr
 | `401` von ElevenLabs | API-Key oder dessen Berechtigungen (TTS/STT) prüfen |
 | `404` von ElevenLabs | Voice-ID prüfen |
 | Antworten zu lang oder zu förmlich | `system_prompt.txt` anpassen, Neustart genügt |
+| Keine Begrüßung zu hören | Lautsprecher/Standard-Ausgabegerät prüfen, dann `python tts_elevenlabs.py` |
+| Knacken oder Aussetzer zwischen Sätzen | `STREAMING=nein` testen und mit `--debug` starten, das zeigt die Latenzen |
+| Q + E unterbricht nicht | Nur mit `PTT_MODE=hold`. Bei `enter` gibt es keine Unterbrechung |
 
 ## Ausbaustufen (noch nicht umgesetzt)
 
-- Wake-Word statt Push-to-Talk (Porcupine / OpenWakeWord)
-- Tool-Use: Preisabfrage, Einkaufsliste, Bestandsabfrage
-- Unterbrechbare Sprachausgabe (Barge-in), Grundlage ist `audio_output.stop()`
+- Wake-Word statt Push-to-Talk (OpenWakeWord) und automatisches Aufnahme-Ende (Silero VAD)
+- Tool-Use: Live-Preise (Websuche, TCGdex), Einkaufsliste, Bestandsabfrage
+- Langzeitgedächtnis (Hindsight)

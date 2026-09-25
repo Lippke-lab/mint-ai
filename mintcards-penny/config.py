@@ -33,6 +33,9 @@ class Config:
     dashboard_port: int
     dashboard_open: bool
     tts_model: str
+    tts_speed: float | None
+    streaming: bool
+    greeting: str
     stt_model: str
     language: str
     ptt_mode: str
@@ -60,6 +63,19 @@ def _bool(name: str, default: bool) -> bool:
     if raw in ("0", "nein", "aus", "false", "no", "off"):
         return False
     raise ConfigError(f"{name}='{raw}' ist ungültig. Erlaubt: ja oder nein.")
+
+
+def _float(name: str, default: float | None, low: float, high: float) -> float | None:
+    raw = os.getenv(name, "").strip().replace(",", ".")
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{name} muss eine Zahl sein, ist aber '{raw}'.") from exc
+    if not low <= value <= high:
+        raise ConfigError(f"{name}={value} liegt außerhalb von {low} bis {high}.")
+    return value
 
 
 def _path(name: str, default: str) -> Path:
@@ -118,6 +134,9 @@ def load_config(require_keys: tuple[str, ...] = REQUIRED_KEYS) -> Config:
         dashboard_port=_int("DASHBOARD_PORT", 8765),
         dashboard_open=_bool("DASHBOARD_OPEN", True),
         tts_model=os.getenv("ELEVENLABS_TTS_MODEL", "").strip() or "eleven_flash_v2_5",
+        tts_speed=_float("TTS_SPEED", None, 0.7, 1.2),
+        streaming=_bool("STREAMING", True),
+        greeting=_greeting(),
         stt_model=os.getenv("ELEVENLABS_STT_MODEL", "").strip() or "scribe_v2",
         language=os.getenv("LANGUAGE", "").strip() or "de",
         ptt_mode=_choice("PTT_MODE", "hold", ("hold", "enter")),
@@ -125,6 +144,19 @@ def load_config(require_keys: tuple[str, ...] = REQUIRED_KEYS) -> Config:
         sample_rate=_int("SAMPLE_RATE", 16000),
         input_device=input_device,
     )
+
+
+DEFAULT_GREETING = "Systeme online. Ich bin bereit, Chef."
+
+
+def _greeting() -> str:
+    """BEGRUESSUNG: ja (Standardsatz), nein (still) oder ein eigener Satz."""
+    raw = os.getenv("BEGRUESSUNG", "").strip()
+    if raw.lower() in ("", "1", "ja", "an", "true", "yes", "on"):
+        return DEFAULT_GREETING
+    if raw.lower() in ("0", "nein", "aus", "false", "no", "off"):
+        return ""
+    return raw
 
 
 def load_config_or_exit(require_keys: tuple[str, ...] = REQUIRED_KEYS) -> Config:

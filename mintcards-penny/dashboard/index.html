@@ -157,6 +157,8 @@
       render();
     });
     es.addEventListener("frage", (ev) => { S.frage = JSON.parse(ev.data).text; render(); });
+    // Live-Untertitel: Pennys Antwort wächst mit, während Claude schreibt
+    es.addEventListener("teil", (ev) => { S.antwort = JSON.parse(ev.data).text; if (S.state === "spricht") render(); });
     es.addEventListener("turn", (ev) => {
       const d = JSON.parse(ev.data); S.frage = d.frage; S.antwort = d.antwort; render();
     });

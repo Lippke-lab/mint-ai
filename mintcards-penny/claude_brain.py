@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
@@ -109,13 +110,20 @@ class ClaudeBrain:
             self.history = self.history[-max_messages:]
 
     def ask(self, user_text: str) -> str:
-        """Schickt user_text samt Verlauf an Claude und gibt die Antwort zurück.
+        """Schickt user_text samt Verlauf an Claude und gibt die komplette Antwort zurück."""
+        return "".join(self.ask_stream(user_text)).strip()
 
+    def ask_stream(self, user_text: str) -> Iterator[str]:
+        """Wie ask(), liefert die Antwort aber Stück für Stück, sobald Claude sie schreibt.
+
+        Erst wenn der Stream komplett gelesen ist, landet der Turn im Gedächtnis.
         API-Fehler werden als anthropic.APIError weitergereicht; der Verlauf
         bleibt dann unverändert, damit ein erneuter Versuch sauber ist.
         """
+        self.last_usage = None  # sonst würde eine Ablehnung alte Tokens doppelt zählen
         messages = self.history + [{"role": "user", "content": user_text}]
-        response = self.client.messages.create(
+        parts: list[str] = []
+        with self.client.messages.stream(
             model=self.model,
             max_tokens=MAX_TOKENS,
             system=self.system_prompt,
@@ -123,26 +131,38 @@ class ClaudeBrain:
             thinking={"type": "adaptive"},
             output_config={"effort": self.effort},
             cache_control={"type": "ephemeral"},
-        )
+        ) as stream:
+            for text in stream.text_stream:
+                if text:
+                    parts.append(text)
+                    yield text
+            response = stream.get_final_message()
+
+        usage = response.usage
+        self.last_usage = {
+            "input": usage.input_tokens,
+            "output": usage.output_tokens,
+            "cache_read": usage.cache_read_input_tokens or 0,
+            "cache_write": usage.cache_creation_input_tokens or 0,
+        }
+        log.debug("Tokens: in=%s out=%s cache_read=%s cache_write=%s", usage.input_tokens,
+                  usage.output_tokens, usage.cache_read_input_tokens, usage.cache_creation_input_tokens)
 
         if response.stop_reason == "refusal":
             log.warning("Claude hat die Anfrage abgelehnt: %s", response.stop_details)
-            return "Dazu kann ich leider nichts sagen."
+            yield (" " if parts else "") + "Dazu kann ich leider nichts sagen."
+            return  # Ablehnungen nicht ins Gedächtnis
 
-        answer = " ".join(b.text for b in response.content if b.type == "text").strip()
         if response.stop_reason == "max_tokens":
             log.warning("Antwort wurde bei max_tokens abgeschnitten.")
+        answer = "".join(parts).strip()
         if not answer:
             answer = "Da ist mir gerade nichts eingefallen. Frag bitte nochmal."
-
-        self.last_usage = {"input": response.usage.input_tokens, "output": response.usage.output_tokens}
-        log.debug("Tokens: in=%s out=%s cache_read=%s", response.usage.input_tokens,
-                  response.usage.output_tokens, response.usage.cache_read_input_tokens)
+            yield answer
 
         self.history = messages + [{"role": "assistant", "content": answer}]
         self._trim()
         self._persist()
-        return answer
 
 
 class EchoBrain:
@@ -160,6 +180,9 @@ class EchoBrain:
     def ask(self, user_text: str) -> str:
         return f"Verstanden: {user_text}"
 
+    def ask_stream(self, user_text: str) -> Iterator[str]:
+        yield self.ask(user_text)
+
 
 if __name__ == "__main__":
     # Einzeltest: Text-Chat mit Claude im Terminal, ganz ohne Audio.
@@ -174,6 +197,9 @@ if __name__ == "__main__":
     print(f"Text-Chat mit {cfg.claude_model}. Leere Zeile oder Ctrl+C beendet.")
     try:
         while (text := input("\nDu: ").strip()):
-            print("Penny:", brain.ask(text))
+            print("Penny: ", end="", flush=True)
+            for part in brain.ask_stream(text):
+                print(part, end="", flush=True)
+            print()
     except (KeyboardInterrupt, EOFError):
         pass

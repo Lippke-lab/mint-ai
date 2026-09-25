@@ -148,6 +148,9 @@ class PushToTalk:
                   eine davon loslassen = fertig. Nutzt pynput und reagiert auch,
                   wenn das Terminal nicht im Fokus ist.
     mode="enter": Enter startet, Enter stoppt. Läuft rein im Terminal.
+
+    Barge-in (nur "hold"): Drückst du die Tasten, während Penny spricht, wird
+    on_interrupt aufgerufen und die Aufnahme startet, sobald Penny still ist.
     """
 
     def __init__(self, recorder: Recorder, mode: str = "hold", key: str = "q+e"):
@@ -160,7 +163,9 @@ class PushToTalk:
         self._done = threading.Event()
         self._result: bytes | None = None
         self._pressed: set[str] = set()
+        self._start_lock = threading.Lock()
         self.on_start = None  # optionaler Callback, sobald die Aufnahme beginnt
+        self.on_interrupt = None  # optionaler Callback: Tasten gedrückt, während Penny spricht
 
         if mode == "hold":
             from pynput import keyboard
@@ -184,18 +189,30 @@ class PushToTalk:
         if kid not in self._combo:
             return
         self._pressed.add(kid)
-        if not self._armed.is_set() or not self._combo <= self._pressed:
+        if not self._combo <= self._pressed:
             return
-        if not self.recorder.is_recording:  # Tasten-Autorepeat ignorieren
+        if not self._armed.is_set():
+            # Penny ist beschäftigt (spricht/denkt): Tasten = "sei still, ich will reden"
+            if self.on_interrupt:
+                self.on_interrupt()
+            return
+        self._begin()
+
+    def _begin(self) -> None:
+        """Startet die Aufnahme genau einmal (Tasten-Autorepeat und Barge-in ignorieren)."""
+        with self._start_lock:
+            if self.recorder.is_recording or not self._armed.is_set():
+                return
             try:
                 self.recorder.start()
-                print("  ● Aufnahme läuft ...", flush=True)
-                if self.on_start:
-                    self.on_start()
             except Exception as exc:  # noqa: BLE001
                 log.error("Mikrofon konnte nicht gestartet werden: %s", exc)
                 self._result = None
                 self._done.set()
+                return
+        print("  ● Aufnahme läuft ...", flush=True)
+        if self.on_start:
+            self.on_start()
 
     def _on_release(self, key):
         kid = _key_id(key)
@@ -217,6 +234,8 @@ class PushToTalk:
         self._result = None
         self._done.clear()
         self._armed.set()
+        if self._combo <= self._pressed:
+            self._begin()  # Tasten noch gedrückt (Barge-in): sofort weiter aufnehmen
         try:
             # Mit Timeout warten, damit Ctrl+C im Hauptthread ankommt.
             while not self._done.wait(timeout=0.1):

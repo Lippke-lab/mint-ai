@@ -1,8 +1,8 @@
 """API-Smoke-Test ohne Mikrofon und Lautsprecher (z. B. für GitHub Actions).
 
 Prüft nacheinander:
-  1. Claude:  Testfrage schicken, Antwort muss kommen
-  2. TTS:     Claudes Antwort in Sprache umwandeln, als WAV speichern
+  1. Claude:  Testfrage schicken, Antwort kommt gestreamt (wie in der echten Schleife)
+  2. TTS:     Claudes Antwort satzweise über die Streaming-Pipeline vertonen, als WAV speichern
   3. STT:     diese WAV zurück in Text umwandeln
 
 Aufruf:  python smoke_test.py [--out ordner]
@@ -20,6 +20,7 @@ from pathlib import Path
 
 from claude_brain import ClaudeBrain
 from config import SYSTEM_PROMPT_FILE, load_config_or_exit
+from speech import BufferPlayer, SentenceSplitter, SpeechOutput
 from stt_elevenlabs import SpeechToText
 from tts_elevenlabs import PCM_RATE, TextToSpeech
 
@@ -66,17 +67,38 @@ def main() -> int:
     def claude():
         brain = ClaudeBrain(cfg.anthropic_api_key, cfg.claude_model, SYSTEM_PROMPT_FILE,
                             cfg.history_turns, cfg.claude_effort)
-        state["answer"] = brain.ask(args.question)
-        return f"{cfg.claude_model} sagt: {state['answer']}"
+        t0 = time.perf_counter()
+        first = None
+        parts = []
+        for part in brain.ask_stream(args.question):
+            first = first if first is not None else time.perf_counter() - t0
+            parts.append(part)
+        state["answer"] = "".join(parts).strip()
+        if not state["answer"]:
+            raise RuntimeError("Leere Antwort")
+        return (f"{cfg.claude_model}, erster Text nach {first:.1f}s, {len(parts)} Stücke. "
+                f"Antwort: {state['answer']}")
 
     def tts():
-        text = str(state.get("answer") or "Systeme online. Mintcards steht bereit.")
-        pcm = TextToSpeech(cfg.elevenlabs_api_key, cfg.elevenlabs_voice_id, cfg.tts_model,
-                           cfg.language).synthesize(text)
+        text = str(state.get("answer") or
+                   "Systeme online. Mintcards steht bereit. Ich spreche Satz für Satz.")
+        tts = TextToSpeech(cfg.elevenlabs_api_key, cfg.elevenlabs_voice_id, cfg.tts_model,
+                           cfg.language, cfg.tts_speed)
+        buf = BufferPlayer()
+        t0 = time.perf_counter()
+        first: list[float] = []
+        # Text in kleinen Häppchen einspeisen, so wie er auch von Claude kommt
+        chunks = [text[i:i + 8] for i in range(0, len(text), 8)]
+        SpeechOutput(tts, lambda: buf).speak_stream(
+            chunks, on_audio_start=lambda: first.append(time.perf_counter() - t0))
+        pcm = bytes(buf.data)
         if len(pcm) < PCM_RATE:  # weniger als ~0,5s Audio ist verdächtig
             raise RuntimeError(f"Nur {len(pcm)} Bytes Audio erhalten")
-        pcm_to_wav(pcm, PCM_RATE, wav_path)
-        return f"{cfg.tts_model}, {len(pcm) / 2 / PCM_RATE:.1f}s Audio → {wav_path}"
+        pcm_to_wav(pcm[: len(pcm) - len(pcm) % 2], PCM_RATE, wav_path)
+        splitter = SentenceSplitter()
+        sentences = len(splitter.feed(text)) + len(splitter.flush())
+        return (f"{cfg.tts_model}, {sentences} Sätze, erster Ton nach {first[0]:.1f}s, "
+                f"{len(pcm) / 2 / PCM_RATE:.1f}s Audio → {wav_path}")
 
     def stt():
         if not wav_path.exists():

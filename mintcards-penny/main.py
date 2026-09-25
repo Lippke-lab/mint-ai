@@ -33,6 +33,21 @@ def elevenlabs_error_text(exc: ElevenLabsError) -> str:
     return f"ElevenLabs-Fehler {exc.status_code}: {exc.body}"
 
 
+def greet(penny: Penny, text: str) -> bool:
+    """Begrüßung beim Start. Prüft nebenbei gleich Stimme, Key und Lautsprecher.
+
+    Gibt False zurück, wenn es keinen Sinn hat weiterzumachen (Key abgelehnt).
+    """
+    try:
+        penny.say(text)
+    except ElevenLabsError as exc:
+        log.error("Begrüßung fehlgeschlagen: %s", elevenlabs_error_text(exc))
+        return exc.status_code != 401
+    except Exception as exc:  # noqa: BLE001 - z. B. kein Ausgabegerät; Penny läuft trotzdem
+        log.error("Begrüßung fehlgeschlagen (%s): %s", type(exc).__name__, exc)
+    return True
+
+
 def run_turn(ptt, stt, penny: Penny) -> None:
     wav = ptt.listen()
     if not wav:
@@ -59,7 +74,9 @@ def main() -> int:
 
     try:
         # Audio-Module erst nach der Key-Prüfung laden, damit Fehler klar getrennt sind.
+        import audio_output  # noqa: F401 - prüft früh, ob PortAudio für die Wiedergabe da ist
         from audio_input import PushToTalk, Recorder
+        from speech import SpeechOutput
         from stt_elevenlabs import SpeechToText
         from tts_elevenlabs import TextToSpeech
     except OSError as exc:
@@ -79,7 +96,8 @@ def main() -> int:
         return 2
 
     stt = SpeechToText(cfg.elevenlabs_api_key, cfg.stt_model, cfg.language)
-    tts = TextToSpeech(cfg.elevenlabs_api_key, cfg.elevenlabs_voice_id, cfg.tts_model, cfg.language)
+    tts = TextToSpeech(cfg.elevenlabs_api_key, cfg.elevenlabs_voice_id, cfg.tts_model, cfg.language,
+                       cfg.tts_speed)
     try:
         ptt = PushToTalk(Recorder(cfg.sample_rate, cfg.input_device), cfg.ptt_mode, cfg.ptt_key)
     except Exception as exc:  # noqa: BLE001 - z. B. pynput ohne Display / fehlende Rechte
@@ -88,12 +106,13 @@ def main() -> int:
         return 2
 
     modell = "echo (ohne Claude)" if echo_mode else cfg.claude_model
-    penny = Penny(brain, tts, info={
+    penny = Penny(brain, SpeechOutput(tts), streaming=cfg.streaming, info={
         "modell": modell, "stimme": cfg.tts_model, "stt": cfg.stt_model,
         "taste": ptt.hint.split("]")[0].lstrip("[") if cfg.ptt_mode == "hold" else "Enter",
         "modus": "Sprache + Dashboard", "gedaechtnis_max": cfg.history_turns,
     })
     ptt.on_start = lambda: penny.set_state("hoert_zu")
+    ptt.on_interrupt = penny.interrupt  # Tasten drücken, während Penny spricht = sie hört auf
 
     dash = None
     if cfg.dashboard and "--kein-dashboard" not in sys.argv:
@@ -113,9 +132,13 @@ def main() -> int:
     if dash:
         print(f"Dashboard: {dash.url}")
     print(ptt.hint)
+    if cfg.ptt_mode == "hold":
+        print("Während Penny spricht: Tasten drücken = sie hört sofort auf und du bist dran.")
     print('Sag "neues Gespräch" zum Zurücksetzen. Ctrl+C beendet.\n')
 
     try:
+        if cfg.greeting and not greet(penny, cfg.greeting):
+            return 1
         while True:
             try:
                 run_turn(ptt, stt, penny)
