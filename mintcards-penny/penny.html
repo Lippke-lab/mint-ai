@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Penny</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@400;500;600&display=swap">
+<style>
+  /* Penny komplett im Browser: Mikrofon -> ElevenLabs Scribe -> Claude (Stream) -> ElevenLabs TTS (Stream).
+     Bewusst ein einziges, dunkles Design (Jarvis-Look), wie das Dashboard. */
+  :root {
+    color-scheme: dark;
+    --ink: #0a111d;
+    --panel: #111b2c;
+    --line: #22324c;
+    --text: #e4ecf6;
+    --muted: #8697b2;
+    --faint: #56678a;
+    --mint: #5ee6c0;
+    --lilac: #9aa8ff;
+    --gold: #f2c66d;
+    --good: #7fd98f;
+    --bad: #ff7d7d;
+    --display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
+    --body: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; background: var(--ink); }
+  body {
+    margin: 0;
+    color: var(--text);
+    font: 16px/1.5 var(--body);
+    padding-inline: 16px;
+    background:
+      radial-gradient(900px 700px at 50% 38%, rgba(94, 230, 192, .08), transparent 65%),
+      var(--ink);
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .stage {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    justify-items: center;
+    padding-block: 16px calc(12px + env(safe-area-inset-bottom));
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .top { width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+  .wordmark {
+    grid-column: 2;
+    font: 700 22px/1 var(--display); letter-spacing: .5em; padding-left: .5em;
+    background: linear-gradient(100deg, var(--mint), var(--lilac) 55%, var(--gold));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .icon-btn {
+    justify-self: end; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+    background: transparent; border: 1px solid transparent; color: var(--muted); cursor: pointer;
+  }
+  .icon-btn:hover, .icon-btn:focus-visible { border-color: var(--line); color: var(--text); outline: none; }
+  .center { display: grid; place-items: center; align-content: center; gap: 4px; width: 100%; min-height: 0; }
+  .orb-wrap { width: min(440px, 86vw, 50vh); aspect-ratio: 1; }
+  #orb { width: 100%; height: 100%; display: block; }
+  .state-label { font: 600 clamp(20px, 3vmin, 28px)/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; }
+  .caption {
+    max-width: 62ch; min-height: 4.6em; max-height: 9.3em; overflow: hidden; text-align: center; color: var(--muted);
+    font-size: clamp(15px, 2vmin, 18px); line-height: 1.55; transition: opacity .6s ease; text-wrap: balance;
+  }
+  .caption.fade { opacity: .4; }
+  .caption.err { color: var(--bad); }
+
+  .controls { width: 100%; display: grid; justify-items: center; gap: 12px; }
+  .talk {
+    width: 100%; max-width: 420px; min-height: 64px; border-radius: 16px; cursor: pointer;
+    background: linear-gradient(180deg, #16243b, #111b2c); border: 1px solid var(--line);
+    font: 600 17px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+  .talk:focus-visible { outline: 2px solid var(--lilac); outline-offset: 2px; }
+  .talk.rec { border-color: var(--mint); box-shadow: 0 0 0 4px rgba(94, 230, 192, .15), 0 0 32px rgba(94, 230, 192, .25); }
+  .talk.stop { border-color: var(--gold); }
+  .talk small { display: block; margin-top: 3px; font: 500 12px/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+  .ask { width: 100%; max-width: 420px; display: flex; gap: 8px; }
+  .ask input {
+    flex: 1; min-width: 0; height: 44px; padding: 0 14px; border-radius: 12px;
+    background: var(--panel); border: 1px solid var(--line);
+  }
+  .ask input:focus { outline: none; border-color: var(--lilac); }
+  .ask button, .btn {
+    height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--line); font-weight: 600;
+  }
+  .ask button:hover, .btn:hover { border-color: var(--lilac); }
+  .btn.primary { background: linear-gradient(100deg, rgba(94,230,192,.18), rgba(154,168,255,.18)); border-color: var(--mint); }
+  .foot { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; justify-content: center; color: var(--faint); font-size: 13px; }
+  .foot button { background: none; border: 0; padding: 0; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  kbd {
+    font: 600 11px/1 var(--display); padding: 4px 6px; border-radius: 5px; color: var(--text);
+    background: #152238; border: 1px solid var(--line); border-bottom-width: 2px;
+  }
+
+  /* Einstellungen */
+  dialog {
+    width: min(560px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 0; border-radius: 16px;
+    background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  }
+  dialog::backdrop { background: rgba(5, 9, 16, .75); }
+  .dlg { padding: 20px; display: grid; gap: 14px; }
+  .dlg h2 { margin: 0; font: 600 20px/1.2 var(--display); letter-spacing: .06em; }
+  .dlg p { margin: 0; color: var(--muted); font-size: 14px; }
+  .warn { padding: 10px 12px; border-radius: 10px; background: rgba(242, 198, 109, .08); border: 1px solid rgba(242, 198, 109, .35); color: var(--gold); font-size: 13px; }
+  .field { display: grid; gap: 5px; }
+  .field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 12px; border-radius: 10px; background: var(--ink); border: 1px solid var(--line);
+  }
+  .field textarea { min-height: 120px; resize: vertical; font-size: 14px; line-height: 1.45; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--lilac); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--muted); font-weight: 600; font-size: 14px; }
+  details[open] summary { margin-bottom: 12px; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .result { font-size: 13px; white-space: pre-line; min-height: 1.4em; }
+  .result .ok { color: var(--good); }
+  .result .no { color: var(--bad); }
+  @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+  @media (hover: none) { .keyhint { display: none; } }
+  @media (max-height: 640px) { .orb-wrap { width: min(300px, 40vmin); } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="stage">
+  <div class="top">
+    <div class="wordmark" aria-label="Penny">PENNY</div>
+    <button class="icon-btn" id="open-settings" aria-label="Einstellungen" title="Einstellungen">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+    </button>
+  </div>
+
+  <div class="center">
+    <div class="orb-wrap"><canvas id="orb" width="880" height="880" aria-hidden="true"></canvas></div>
+    <div class="state-label" id="state-label" aria-live="polite">Bereit</div>
+    <p class="caption" id="caption"></p>
+  </div>
+
+  <div class="controls">
+    <button class="talk" id="talk" type="button">Penny starten<small>Einmal tippen, dann Mikrofon erlauben</small></button>
+    <form class="ask" id="ask" autocomplete="off">
+      <input id="ask-text" type="text" placeholder="Oder tippen: Was bringt ein Glurak ex?" aria-label="Frage an Penny">
+      <button type="submit">Senden</button>
+    </form>
+    <div class="foot">
+      <span class="keyhint"><kbd>Leertaste</kbd> oder <kbd>Q</kbd>+<kbd>E</kbd> halten</span>
+      <span id="stats">0 Turns</span>
+      <button type="button" id="reset">Neues Gespräch</button>
+    </div>
+  </div>
+</main>
+
+<dialog id="settings">
+  <form class="dlg" method="dialog" id="settings-form">
+    <h2>Einstellungen</h2>
+    <div class="warn">Die Keys bleiben nur in diesem Browser. Jeder, der hier an deinen Rechner kommt, kann sie auslesen. Diese Datei darum nie online stellen oder mit eingetragenen Keys weitergeben.</div>
+    <div class="field">
+      <label for="k-anthropic">Anthropic API-Key</label>
+      <input id="k-anthropic" type="password" placeholder="sk-ant-… (leer = Penny wiederholt nur)" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="k-eleven">ElevenLabs API-Key</label>
+      <input id="k-eleven" type="password" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="k-voice">ElevenLabs Voice-ID</label>
+      <input id="k-voice" type="text" autocomplete="off" spellcheck="false">
+    </div>
+    <label class="check"><input type="checkbox" id="k-remember"> Keys auf diesem Gerät merken</label>
+
+    <details>
+      <summary>Mehr Einstellungen</summary>
+      <div class="dlg" style="padding:0">
+        <div class="row">
+          <div class="field">
+            <label for="s-model">Claude-Modell</label>
+            <select id="s-model">
+              <option value="claude-sonnet-5">Sonnet 5 (Standard)</option>
+              <option value="claude-haiku-4-5">Haiku 4.5 (am schnellsten)</option>
+              <option value="claude-opus-5">Opus 5 (am klügsten)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="s-effort">Denkaufwand</label>
+            <select id="s-effort">
+              <option value="low">niedrig (schnell)</option>
+              <option value="medium">mittel</option>
+              <option value="high">hoch</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="s-tts">Stimm-Modell</label>
+            <select id="s-tts">
+              <option value="eleven_flash_v2_5">Flash v2.5 (am schnellsten)</option>
+              <option value="eleven_multilingual_v2">Multilingual v2 (bessere Qualität)</option>
+              <option value="eleven_v3">v3 (am ausdrucksstärksten)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="s-speed">Sprechtempo (0.7 bis 1.2)</label>
+            <input id="s-speed" type="number" min="0.7" max="1.2" step="0.05" placeholder="Stimme bei ElevenLabs">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="s-turns">Gedächtnis (Turns)</label>
+            <input id="s-turns" type="number" min="1" max="50" step="1">
+          </div>
+          <div class="field">
+            <label for="s-greeting">Begrüßung beim Start</label>
+            <input id="s-greeting" type="text" placeholder="leer = keine">
+          </div>
+        </div>
+        <div class="field">
+          <label for="s-prompt">Persönlichkeit (System-Prompt)</label>
+          <textarea id="s-prompt" spellcheck="false"></textarea>
+        </div>
+      </div>
+    </details>
+
+    <div class="result" id="test-result" aria-live="polite"></div>
+    <div class="actions">
+      <button class="btn" type="button" id="test">Verbindung testen</button>
+      <button class="btn primary" type="submit" value="save">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  // ======================================================================
+  // Einstellungen
+  // ======================================================================
+  const DEFAULT_PROMPT = `Du bist Penny, die persönliche Sprachassistentin von Mintcards. Mintcards ist ein Resale-Business für Pokémon-Karten: Einkauf von Einzelkarten, Displays und Sammlungen, Bewertung, Grading und Weiterverkauf über Plattformen wie Cardmarket, eBay und Vinted.
+
+Deine Aufgaben: Preise und Marktlage einschätzen, Einkaufsentscheidungen durchdenken, Inventar- und Business-Fragen beantworten, bei Listings, Versand und Kalkulation helfen.
+
+Gedächtnis: Du erinnerst dich an die letzten Gespräche mit deinem Chef, auch über Neustarts hinweg. Knüpfe daran an, wenn es passt.
+
+Stil:
+- Du sprichst mit deinem Chef. Knapp, direkt, souverän, mit einem Hauch trockenem Humor, wie eine KI-Assistentin im Stil von Jarvis aus Iron Man.
+- Deine Antworten werden laut vorgelesen. Antworte in 2 bis 4 kurzen Sätzen, außer es wird ausdrücklich mehr verlangt.
+- Klares, einfaches Deutsch. Kein Füllgerede, keine Floskeln.
+- Keine Gedankenstriche, keine Aufzählungszeichen, kein Markdown, keine Emojis, keine Tabellen. Nur gesprochene Sätze.
+- Schreibe Zahlen und Preise so, dass sie gut vorlesbar sind, zum Beispiel "etwa 45 Euro".
+- Wenn du etwas nicht sicher weißt, etwa einen aktuellen Kartenpreis, sag das kurz und gib eine grobe Einschätzung mit Hinweis, wo man es prüft.
+- Geht eine Frage über Mintcards hinaus, antworte ganz normal, nutze aber den Mintcards-Kontext, wenn er relevant ist.`;
+
+  const DEFAULTS = {
+    model: "claude-sonnet-5", effort: "low", ttsModel: "eleven_flash_v2_5", sttModel: "scribe_v2",
+    language: "de", speed: "", turns: 10, greeting: "Systeme online. Ich bin bereit, Chef.", prompt: DEFAULT_PROMPT,
+  };
+  const KEY_FIELDS = ["anthropicKey", "elevenKey", "voiceId"];
+  const PRICES = { "claude-sonnet-5": [2, 10], "claude-haiku-4-5": [1, 5], "claude-opus-5": [5, 25] };
+  const RESET_COMMANDS = ["neues gespräch", "vergiss alles", "reset"];
+
+  const store = {
+    get(k, fallback) {
+      try { const v = localStorage.getItem("penny." + k); return v === null ? fallback : JSON.parse(v); }
+      catch (_) { return fallback; }
+    },
+    set(k, v) { try { localStorage.setItem("penny." + k, JSON.stringify(v)); } catch (_) { /* privates Fenster */ } },
+    del(k) { try { localStorage.removeItem("penny." + k); } catch (_) {} },
+  };
+
+  const cfg = Object.assign({}, DEFAULTS, store.get("settings", {}));
+  const remembered = store.get("keys", null);
+  const session = remembered || {};
+  cfg.remember = !!remembered;
+  KEY_FIELDS.forEach((k) => { cfg[k] = session[k] || ""; });
+
+  function saveSettings() {
+    const { anthropicKey, elevenKey, voiceId, remember, ...rest } = cfg;
+    store.set("settings", rest);
+    if (remember) store.set("keys", { anthropicKey, elevenKey, voiceId });
+    else store.del("keys");
+  }
+
+  // ======================================================================
+  // Gedächtnis (letzte N Turns, bleibt im Browser)
+  // ======================================================================
+  let history = store.get("history", []);
+  if (!Array.isArray(history)) history = [];
+  const stats = Object.assign({ turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, store.get("stats", {}));
+
+  function trimHistory() {
+    const max = Math.max(1, Number(cfg.turns) || 10) * 2;
+    if (history.length > max) history = history.slice(-max);
+    while (history.length && history[0].role !== "user") history.shift();
+  }
+
+  function costUsd() {
+    const p = PRICES[cfg.model]; if (!p) return null;
+    const pin = p[0] / 1e6, pout = p[1] / 1e6;
+    return stats.input * pin + stats.output * pout + stats.cacheRead * pin * 0.1 + stats.cacheWrite * pin * 1.25;
+  }
+
+  function renderStats() {
+    const c = costUsd();
+    $("stats").textContent = `${stats.turns} Turns · Gedächtnis ${history.length / 2 | 0}/${cfg.turns}` +
+      (c !== null && stats.turns ? ` · ca. ${c.toFixed(3)} $` : "");
+  }
+
+  // ======================================================================
+  // Text fürs Vorlesen: Sätze erkennen und säubern (wie speech.py)
+  // ======================================================================
+  const ABBREV = new Set(["z", "b", "d", "h", "u", "a", "o", "s", "ca", "bzw", "nr", "usw", "evtl", "ggf", "inkl",
+    "zzgl", "exkl", "st", "dr", "vs", "mio", "mrd", "tsd", "min", "max", "bspw", "vgl", "ggü"]);
+  const MIN_SENTENCE = 12;
+
+  class SentenceSplitter {
+    constructor() { this.buf = ""; }
+    feed(delta) {
+      this.buf += delta;
+      const out = [];
+      for (let cut = this.nextCut(); cut !== null; cut = this.nextCut()) {
+        const s = this.buf.slice(0, cut).trim();
+        this.buf = this.buf.slice(cut).replace(/^\s+/, "");
+        if (s) out.push(s);
+      }
+      return out;
+    }
+    flush() { const r = this.buf.trim(); this.buf = ""; return r ? [r] : []; }
+    nextCut() {
+      const re = /[.!?…]+["'“”»«)\]]*(?=\s)|\n+/g;
+      let m;
+      while ((m = re.exec(this.buf))) {
+        const end = m.index + m[0].length;
+        if (this.buf.slice(0, end).trim().length < MIN_SENTENCE) continue;
+        if (m[0][0] === "." && m[0][1] !== ".") {
+          const w = /([\p{L}\p{N}_]+)\.$/u.exec(this.buf.slice(0, m.index + 1));
+          if (w && (ABBREV.has(w[1].toLowerCase()) || /^\d+$/.test(w[1]))) continue;
+        }
+        return end;
+      }
+      return null;
+    }
+  }
+
+  function cleanForSpeech(text) {
+    return text
+      .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}️‍]+/gu, "")
+      .replace(/^\s*(?:[-*•]|\d+[.)])\s+/gm, "")
+      .replace(/[*_#`>|]+/g, "")
+      .replace(/\s+[–—]\s+/g, ", ")
+      .replace(/(\d)\s*€/g, "$1 Euro")
+      .replace(/€/g, "Euro").replace(/%/g, " Prozent").replace(/&/g, " und ")
+      .replace(/\s+/g, " ").trim();
+  }
+
+  // ======================================================================
+  // APIs
+  // ======================================================================
+  class ApiError extends Error {
+    constructor(service, status, message) { super(message); this.service = service; this.status = status; }
+  }
+
+  async function readError(res, service) {
+    let msg = "";
+    try {
+      const j = await res.json();
+      msg = (j.error && (j.error.message || j.error)) || (j.detail && (j.detail.message || j.detail.status || JSON.stringify(j.detail))) || "";
+    } catch (_) {}
+    return new ApiError(service, res.status, String(msg).slice(0, 200));
+  }
+
+  function friendlyError(err) {
+    if (err && err.name === "AbortError") return "";
+    if (err instanceof ApiError) {
+      if (err.service === "claude") {
+        if (err.status === 401) return "Anthropic lehnt den API-Key ab. Bitte in den Einstellungen prüfen.";
+        if (err.status === 404) return "Claude-Modell nicht gefunden. Bitte in den Einstellungen prüfen.";
+        if (err.status === 429) return "Anthropic Rate-Limit erreicht. Kurz warten und nochmal versuchen.";
+        if (err.status === 400 && /credit/i.test(err.message)) return "Anthropic-Guthaben ist aufgebraucht.";
+        return `Claude-Fehler ${err.status}: ${err.message}`;
+      }
+      if (err.status === 401) return "ElevenLabs lehnt den API-Key ab (oder ihm fehlen Rechte für Text to Speech / Speech to Text).";
+      if (err.status === 404) return "ElevenLabs findet die Stimme nicht. Voice-ID prüfen.";
+      return `ElevenLabs-Fehler ${err.status}: ${err.message}`;
+    }
+    if (err instanceof TypeError) return "Keine Verbindung zur API. Internet prüfen (oder der Browser blockiert den Zugriff).";
+    return (err && err.message) || "Etwas ist schiefgelaufen.";
+  }
+
+  // --- Spracherkennung: ElevenLabs Scribe ---
+  async function transcribe(blob) {
+    const ext = /mp4|m4a|aac/.test(blob.type) ? "m4a" : /ogg/.test(blob.type) ? "ogg" : /wav/.test(blob.type) ? "wav" : "webm";
+    const fd = new FormData();
+    fd.append("file", blob, "aufnahme." + ext);
+    fd.append("model_id", cfg.sttModel);
+    fd.append("language_code", cfg.language);
+    fd.append("tag_audio_events", "false");
+    const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+      method: "POST", headers: { "xi-api-key": cfg.elevenKey }, body: fd,
+    });
+    if (!res.ok) throw await readError(res, "stt");
+    const j = await res.json();
+    return (j.text || "").trim();
+  }
+
+  // --- Claude: Antwort Stück für Stück (Server-Sent Events) ---
+  async function* claudeStream(messages, signal, result) {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal,
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": cfg.anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: cfg.model,
+        max_tokens: 4000,
+        system: cfg.prompt || DEFAULT_PROMPT,
+        messages,
+        stream: true,
+        cache_control: { type: "ephemeral" },
+        ...(cfg.model.startsWith("claude-haiku-4-5")
+          ? {}  // Haiku 4.5 kennt weder adaptives Denken noch effort
+          : { thinking: { type: "adaptive" }, output_config: { effort: cfg.effort } }),
+      }),
+    });
+    if (!res.ok) throw await readError(res, "claude");
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let sep;
+      while ((sep = buf.search(/\r?\n\r?\n/)) !== -1) {
+        const raw = buf.slice(0, sep);
+        buf = buf.slice(sep).replace(/^\r?\n\r?\n/, "");
+        const data = raw.split(/\r?\n/).filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trimStart()).join("\n");
+        if (!data) continue;
+        let ev;
+        try { ev = JSON.parse(data); } catch (_) { continue; }
+        if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") {
+          yield ev.delta.text;
+        } else if (ev.type === "message_start" && ev.message && ev.message.usage) {
+          const u = ev.message.usage;
+          result.input = u.input_tokens || 0;
+          result.cacheRead = u.cache_read_input_tokens || 0;
+          result.cacheWrite = u.cache_creation_input_tokens || 0;
+        } else if (ev.type === "message_delta") {
+          if (ev.delta && ev.delta.stop_reason) result.stopReason = ev.delta.stop_reason;
+          if (ev.usage && ev.usage.output_tokens != null) result.output = ev.usage.output_tokens;
+        } else if (ev.type === "error") {
+          throw new ApiError("claude", 500, (ev.error && ev.error.message) || "Stream-Fehler");
+        }
+      }
+    }
+  }
+
+  // Ohne Anthropic-Key: Penny wiederholt nur (zum Testen von Mikrofon und Stimme)
+  async function* echoStream(text) { yield `Verstanden: ${text}`; }
+
+  // ======================================================================
+  // Stimme: ElevenLabs-Stream satzweise, lückenlos über Web Audio abgespielt
+  // ======================================================================
+  const PCM_RATE = 22050;
+  let audioCtx = null;
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      try { audioCtx = new AC({ sampleRate: PCM_RATE }); } catch (_) { audioCtx = new AC(); }
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  class Speaker {
+    constructor(onAudioStart) {
+      this.ctx = ensureAudio();
+      this.queue = [];
+      this.closed = false;
+      this.stopped = false;
+      this.wake = null;
+      this.sources = new Set();
+      this.playhead = 0;
+      this.spoken = "";
+      this.started = false;
+      this.onAudioStart = onAudioStart;
+      this.abort = new AbortController();
+      this.done = this.run();
+    }
+    push(sentence) { this.queue.push(sentence); this.poke(); }
+    close() { this.closed = true; this.poke(); }
+    poke() { if (this.wake) { const w = this.wake; this.wake = null; w(); } }
+    stop() {
+      this.stopped = true;
+      this.abort.abort();
+      this.sources.forEach((s) => { try { s.stop(); } catch (_) {} });
+      this.sources.clear();
+      this.poke();
+    }
+
+    async run() {
+      while (!this.stopped) {
+        if (!this.queue.length) {
+          if (this.closed) break;
+          await new Promise((r) => { this.wake = r; });
+          continue;
+        }
+        const text = cleanForSpeech(this.queue.shift());
+        if (text) await this.speakSentence(text);
+      }
+      // warten, bis alles ausgespielt ist
+      while (!this.stopped && this.ctx.currentTime < this.playhead) await sleep(40);
+      return !this.stopped;
+    }
+
+    async speakSentence(text) {
+      const body = { text, model_id: cfg.ttsModel };
+      if (/v2_5/.test(cfg.ttsModel)) body.language_code = cfg.language;
+      if (this.spoken && !/v3/.test(cfg.ttsModel)) body.previous_text = this.spoken.slice(-400);
+      const speed = parseFloat(String(cfg.speed).replace(",", "."));
+      if (speed >= 0.7 && speed <= 1.2) body.voice_settings = { speed };
+
+      const url = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(cfg.voiceId)}/stream?output_format=pcm_${PCM_RATE}`;
+      let res;
+      try {
+        res = await fetch(url, {
+          method: "POST", signal: this.abort.signal,
+          headers: { "xi-api-key": cfg.elevenKey, "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch (err) { if (this.stopped) return; throw err; }
+      if (!res.ok) throw await readError(res, "tts");
+
+      const reader = res.body.getReader();
+      let pending = new Uint8Array(0);
+      // Erstes Stück klein (schneller Start), danach größere Blöcke (weniger Übergänge)
+      let minBytes = PCM_RATE * 2 * 0.12;
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (this.stopped) return;
+          if (value && value.length) pending = concat(pending, value);
+          if (pending.length >= minBytes || (done && pending.length >= 2)) {
+            const usable = pending.length - (pending.length % 2);
+            this.schedule(pending.subarray(0, usable));
+            pending = pending.slice(usable);
+            minBytes = PCM_RATE * 2 * 0.4;
+          }
+          if (done) break;
+        }
+      } catch (err) { if (this.stopped) return; throw err; }
+      this.spoken = (this.spoken + " " + text).trim();
+    }
+
+    schedule(bytes) {
+      const samples = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.length / 2);
+      const buf = this.ctx.createBuffer(1, samples.length, PCM_RATE);
+      const ch = buf.getChannelData(0);
+      for (let i = 0; i < samples.length; i++) ch[i] = samples[i] / 32768;
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      const at = Math.max(this.playhead, this.ctx.currentTime + 0.03);
+      src.start(at);
+      this.playhead = at + buf.duration;
+      this.sources.add(src);
+      src.onended = () => this.sources.delete(src);
+      if (!this.started) { this.started = true; if (this.onAudioStart) this.onAudioStart(); }
+    }
+  }
+
+  function concat(a, b) {
+    const out = new Uint8Array(a.length + b.length);
+    out.set(a, 0); out.set(b, a.length);
+    return out;
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // ======================================================================
+  // Penny: Zustand, Antworten, Unterbrechen
+  // ======================================================================
+  const S = { state: "bereit", caption: "", captionKind: "", recording: false };
+  let current = null;         // { speaker, controller } der laufenden Antwort
+  let chain = Promise.resolve(); // Antworten laufen nacheinander, nie gleichzeitig
+
+  const STATE_LABELS = { bereit: "Bereit", hoert_zu: "Hört zu", versteht: "Versteht", denkt: "Denkt nach", spricht: "Spricht", fehler: "Störung" };
+
+  function setState(state, caption, kind = "") {
+    if (S.recording && state !== "hoert_zu" && state !== "fehler") return; // Aufnahme hat Vorrang
+    S.state = state;
+    if (caption !== undefined) { S.caption = caption; S.captionKind = kind; }
+    render();
+  }
+
+  function render() {
+    $("state-label").textContent = STATE_LABELS[S.state] || STATE_LABELS.bereit;
+    const cap = $("caption");
+    cap.textContent = S.caption;
+    cap.className = "caption" + (S.captionKind === "err" ? " err" : S.state === "bereit" && S.caption ? " fade" : "");
+    orb.setState(S.state);
+    const talk = $("talk");
+    talk.classList.toggle("rec", S.recording);
+    talk.classList.toggle("stop", !S.recording && !!current);
+    if (!started) return;
+    talk.firstChild.textContent = S.recording ? "Loslassen zum Senden" : current ? "Unterbrechen" : "Halten zum Sprechen";
+    talk.lastChild.textContent = S.recording ? "Penny hört zu" : current ? "Tippen oder Taste: Penny hört sofort auf" : "Leertaste oder Q + E geht auch";
+  }
+
+  function showError(err) {
+    const msg = friendlyError(err);
+    if (!msg) return;
+    console.error(err);
+    S.recording = false;
+    setState("fehler", msg, "err");
+  }
+
+  function interrupt() {
+    if (current) { current.speaker && current.speaker.stop(); current.interrupted = true; }
+  }
+
+  async function say(text) {
+    if (!text || !cfg.elevenKey || !cfg.voiceId) return;
+    const job = { speaker: null, interrupted: false };
+    current = job;
+    try {
+      job.speaker = new Speaker(() => setState("spricht", text));
+      job.speaker.push(text);
+      job.speaker.close();
+      await job.speaker.done;
+    } finally {
+      if (current === job) current = null;
+      if (S.state !== "fehler") setState("bereit");
+    }
+  }
+
+  function respond(text, quelle) {
+    const run = chain.then(() => doRespond(text, quelle)).catch(showError);
+    chain = run;
+    return run;
+  }
+
+  async function doRespond(text, quelle) {
+    if (RESET_COMMANDS.includes(text.toLowerCase().replace(/^[\s.!?]+|[\s.!?]+$/g, ""))) {
+      history = []; store.set("history", history); renderStats();
+      await say("Erledigt. Wir fangen von vorne an.");
+      return;
+    }
+    const canSpeak = !!(cfg.elevenKey && cfg.voiceId);
+    const job = { speaker: null, interrupted: false };
+    current = job;
+    setState("denkt", `„${text}“`);
+    const t0 = performance.now();
+    const usage = {};
+    const messages = history.concat([{ role: "user", content: text }]);
+    let answer = "";
+    try {
+      if (canSpeak) job.speaker = new Speaker(() => {
+        console.info(`Penny: erster Ton nach ${((performance.now() - t0) / 1000).toFixed(2)} s`);
+        setState("spricht", answer);
+      });
+      const splitter = new SentenceSplitter();
+      const stream = cfg.anthropicKey ? claudeStream(messages, undefined, usage) : echoStream(text);
+      for await (const delta of stream) {
+        answer += delta;
+        if (S.state === "spricht" || !canSpeak) setState(canSpeak ? "spricht" : "denkt", answer);
+        if (job.speaker && !job.interrupted) splitter.feed(delta).forEach((s) => job.speaker.push(s));
+      }
+      if (usage.stopReason === "refusal") {
+        answer = (answer ? answer + " " : "") + "Dazu kann ich leider nichts sagen.";
+        if (job.speaker && !job.interrupted) job.speaker.push("Dazu kann ich leider nichts sagen.");
+      } else if (!answer.trim()) {
+        answer = "Da ist mir gerade nichts eingefallen. Frag bitte nochmal.";
+        if (job.speaker) job.speaker.push(answer);
+      }
+      if (job.speaker && !job.interrupted) splitter.flush().forEach((s) => job.speaker.push(s));
+
+      // Gedächtnis und Kosten, sobald der Text komplett ist (auch wenn unterbrochen)
+      if (cfg.anthropicKey && usage.stopReason !== "refusal") {
+        history = messages.concat([{ role: "assistant", content: answer.trim() }]);
+        trimHistory();
+        store.set("history", history);
+      }
+      stats.turns += 1;
+      stats.input += usage.input || 0; stats.output += usage.output || 0;
+      stats.cacheRead += usage.cacheRead || 0; stats.cacheWrite += usage.cacheWrite || 0;
+      store.set("stats", stats);
+      renderStats();
+      if (!canSpeak) setState("bereit", answer);
+
+      if (job.speaker) {
+        job.speaker.close();
+        await job.speaker.done;
+      }
+      console.info(`DU (${quelle}): ${text}\nPENNY${job.interrupted ? " (unterbrochen)" : ""}: ${answer}`);
+    } catch (err) {
+      if (job.speaker) job.speaker.stop();
+      throw err;
+    } finally {
+      if (current === job) current = null;
+      if (S.state !== "fehler") setState("bereit", answer || S.caption);
+    }
+  }
+
+  // ======================================================================
+  // Mikrofon: Push-to-Talk (Taste, Button oder Finger halten)
+  // ======================================================================
+  let micStream = null, recorder = null, chunks = [], recStart = 0;
+
+  async function ensureMic() {
+    if (micStream && micStream.active) return micStream;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("Dieser Browser erlaubt hier kein Mikrofon. Seite über http://localhost öffnen (siehe README).");
+    }
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
+    return micStream;
+  }
+
+  function pickMime() {
+    const types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus"];
+    return (window.MediaRecorder && types.find((t) => MediaRecorder.isTypeSupported(t))) || "";
+  }
+
+  let pressId = 0;
+  async function pttDown() {
+    if (S.recording) return;
+    if (!cfg.elevenKey) { openSettings(); return; }
+    interrupt(); // Penny redet noch? Dann hört sie jetzt auf.
+    const id = ++pressId;
+    try {
+      const stream = await ensureMic();
+      if (id !== pressId || !pttHeld) return; // schon wieder losgelassen
+      const mime = pickMime();
+      recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+      chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+      recorder.start();
+      recStart = performance.now();
+      S.recording = true;
+      setState("hoert_zu", "");
+    } catch (err) {
+      pttHeld = false;
+      showError(err.name === "NotAllowedError" ? new Error("Mikrofon blockiert. Im Browser für diese Seite erlauben.") : err);
+    }
+  }
+
+  function pttUp() {
+    pressId++;
+    if (!S.recording || !recorder) return;
+    const rec = recorder;
+    recorder = null;
+    S.recording = false;
+    const seconds = (performance.now() - recStart) / 1000;
+    rec.onstop = async () => {
+      if (seconds < 0.3) { setState("bereit"); return; } // versehentlich getippt
+      const blob = new Blob(chunks, { type: rec.mimeType || "audio/webm" });
+      setState("versteht", "");
+      try {
+        const t0 = performance.now();
+        const text = await transcribe(blob);
+        console.info(`STT: ${((performance.now() - t0) / 1000).toFixed(2)} s`);
+        if (!text) { setState("bereit", "Nichts verstanden."); return; }
+        respond(text, "stimme");
+      } catch (err) { showError(err); }
+    };
+    rec.stop();
+  }
+
+  // Tastatur: Leertaste oder Q+E halten (nicht, während man in ein Feld tippt)
+  const held = new Set();
+  let pttHeld = false;
+  const typing = (e) => /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || $("settings").open;
+
+  document.addEventListener("keydown", (e) => {
+    if (typing(e) || !started) return;
+    const k = e.key.toLowerCase();
+    if (k !== " " && k !== "q" && k !== "e") return;
+    e.preventDefault();
+    held.add(k);
+    const combo = held.has(" ") || (held.has("q") && held.has("e"));
+    if (combo && !pttHeld) { pttHeld = true; pttDown(); }
+  });
+  document.addEventListener("keyup", (e) => {
+    held.delete(e.key.toLowerCase());
+    const combo = held.has(" ") || (held.has("q") && held.has("e"));
+    if (pttHeld && !combo) { pttHeld = false; pttUp(); }
+  });
+  window.addEventListener("blur", () => { held.clear(); if (pttHeld) { pttHeld = false; pttUp(); } });
+
+  // Button: halten = sprechen, kurzes Tippen während Penny spricht = unterbrechen
+  let started = false;
+  const talk = $("talk");
+  talk.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    if (!started) return;
+    talk.setPointerCapture(e.pointerId);
+    pttHeld = true;
+    pttDown();
+  });
+  const release = () => { if (pttHeld) { pttHeld = false; pttUp(); } };
+  talk.addEventListener("pointerup", release);
+  talk.addEventListener("pointercancel", release);
+  talk.addEventListener("contextmenu", (e) => e.preventDefault());
+  talk.addEventListener("click", () => { if (!started) start(); });
+
+  async function start() {
+    if (!cfg.elevenKey || !cfg.voiceId) { openSettings(); return; }
+    started = true;
+    ensureAudio(); // muss in einer Nutzeraktion passieren (Autoplay-Regeln)
+    render();
+    try { await ensureMic(); } catch (err) { showError(err.name === "NotAllowedError" ? new Error("Mikrofon blockiert. Im Browser für diese Seite erlauben.") : err); }
+    if (cfg.greeting) {
+      try { await say(cfg.greeting); } catch (err) { showError(err); }
+    }
+  }
+
+  $("ask").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = $("ask-text");
+    const text = input.value.trim();
+    if (!text) return;
+    if (!started) { started = true; ensureAudio(); render(); }
+    input.value = "";
+    input.blur();
+    interrupt();
+    respond(text, "text");
+  });
+
+  $("reset").addEventListener("click", () => {
+    history = []; store.set("history", history);
+    Object.assign(stats, { turns: 0, input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }); store.set("stats", stats);
+    renderStats(); setState("bereit", "Gedächtnis gelöscht.");
+  });
+
+  // ======================================================================
+  // Einstellungen-Dialog
+  // ======================================================================
+  const FORM = {
+    "k-anthropic": "anthropicKey", "k-eleven": "elevenKey", "k-voice": "voiceId",
+    "s-model": "model", "s-effort": "effort", "s-tts": "ttsModel", "s-speed": "speed",
+    "s-turns": "turns", "s-greeting": "greeting", "s-prompt": "prompt",
+  };
+
+  function openSettings() {
+    Object.entries(FORM).forEach(([id, key]) => { $(id).value = cfg[key] ?? ""; });
+    $("k-remember").checked = cfg.remember;
+    $("test-result").textContent = "";
+    $("settings").showModal();
+  }
+
+  function readForm() {
+    Object.entries(FORM).forEach(([id, key]) => { cfg[key] = $(id).value.trim(); });
+    cfg.turns = Math.min(50, Math.max(1, parseInt(cfg.turns, 10) || DEFAULTS.turns));
+    cfg.prompt = cfg.prompt || DEFAULT_PROMPT;
+    cfg.remember = $("k-remember").checked;
+  }
+
+  $("open-settings").addEventListener("click", openSettings);
+  $("settings-form").addEventListener("submit", () => {
+    readForm(); saveSettings(); trimHistory(); renderStats();
+    if (!started) setState("bereit", cfg.elevenKey && cfg.voiceId ? "Bereit. Tippe auf „Penny starten“." : "");
+  });
+
+  $("test").addEventListener("click", async () => {
+    readForm();
+    const out = $("test-result");
+    out.replaceChildren();
+    const line = (ok, text) => {
+      const span = document.createElement("span");
+      span.className = ok ? "ok" : "no";
+      span.textContent = (ok ? "✓ " : "✗ ") + text + "\n";
+      out.append(span);
+    };
+    // Claude: Modell abfragen (kostenlos, prüft Key und Modellname)
+    if (cfg.anthropicKey) {
+      try {
+        const res = await fetch(`https://api.anthropic.com/v1/models/${encodeURIComponent(cfg.model)}`, {
+          headers: { "x-api-key": cfg.anthropicKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        });
+        if (!res.ok) throw await readError(res, "claude");
+        line(true, `Claude: Key ok, ${cfg.model} verfügbar`);
+      } catch (err) { line(false, "Claude: " + friendlyError(err)); }
+    } else {
+      line(false, "Claude: kein Key, Penny wiederholt nur, was sie verstanden hat");
+    }
+    // ElevenLabs: kurzen Satz sprechen (prüft Key, Stimme und Lautsprecher)
+    if (cfg.elevenKey && cfg.voiceId) {
+      try {
+        ensureAudio();
+        const sp = new Speaker(null);
+        sp.push("Verbindung steht.");
+        sp.close();
+        await sp.done;
+        line(true, "ElevenLabs: Stimme ok. Hast du „Verbindung steht“ gehört?");
+      } catch (err) { line(false, "ElevenLabs: " + friendlyError(err)); }
+    } else {
+      line(false, "ElevenLabs: Key und Voice-ID fehlen");
+    }
+  });
+
+  // ======================================================================
+  // Pennys Kern (Canvas), wie im Dashboard
+  // ======================================================================
+  const orb = (() => {
+    const canvas = $("orb"), ctx = canvas.getContext("2d");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const W = 440, C = W / 2, SCALE = canvas.width / W;
+    const COLORS = { bereit: "#5ee6c0", hoert_zu: "#5ee6c0", versteht: "#9aa8ff", denkt: "#9aa8ff", spricht: "#f2c66d", fehler: "#ff7d7d" };
+    let state = "bereit", energy = 0, target = 0;
+    const t0 = performance.now();
+
+    function foil() {
+      const g = ctx.createConicGradient ? ctx.createConicGradient(0, C, C) : ctx.createLinearGradient(0, 0, W, W);
+      g.addColorStop(0, "#5ee6c0"); g.addColorStop(0.33, "#9aa8ff"); g.addColorStop(0.66, "#f2c66d"); g.addColorStop(1, "#5ee6c0");
+      return g;
+    }
+
+    function draw(now) {
+      const t = (now - t0) / 1000;
+      energy += (target - energy) * 0.06;
+      ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+      ctx.clearRect(0, 0, W, W);
+      const col = COLORS[state] || COLORS.bereit;
+
+      const glow = ctx.createRadialGradient(C, C, 20, C, C, C);
+      glow.addColorStop(0, col + "33"); glow.addColorStop(0.55, col + "10"); glow.addColorStop(1, "transparent");
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(C, C, C, 0, Math.PI * 2); ctx.fill();
+
+      ctx.save(); ctx.translate(C, C); ctx.rotate(reduce ? 0 : t * 0.05);
+      for (let i = 0; i < 72; i++) {
+        const a = (i / 72) * Math.PI * 2, long = i % 6 === 0;
+        ctx.strokeStyle = long ? "rgba(228,236,246,.35)" : "rgba(228,236,246,.12)";
+        ctx.lineWidth = long ? 2 : 1;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * 196, Math.sin(a) * 196);
+        ctx.lineTo(Math.cos(a) * (long ? 182 : 189), Math.sin(a) * (long ? 182 : 189));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.lineWidth = 3; ctx.strokeStyle = foil();
+      ctx.save(); ctx.translate(C, C); ctx.rotate(reduce ? 0 : -t * 0.15); ctx.translate(-C, -C);
+      ctx.beginPath(); ctx.arc(C, C, 166, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+
+      ctx.lineCap = "round";
+      if (state === "denkt" || state === "versteht") {
+        for (let k = 0; k < 3; k++) {
+          const s = (reduce ? 0 : t * (1.6 + k * 0.5)) + k * 2.1;
+          ctx.strokeStyle = col; ctx.globalAlpha = 0.85 - k * 0.22; ctx.lineWidth = 5 - k;
+          ctx.beginPath(); ctx.arc(C, C, 142 - k * 15, s, s + 1.1 + k * 0.3); ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      const waving = state === "hoert_zu" || state === "spricht";
+      target = waving ? 1 : state === "bereit" ? 0.15 : 0.35;
+      const base = 100 + (reduce ? 0 : Math.sin(t * 1.4) * 3);
+      ctx.beginPath();
+      for (let i = 0; i <= 180; i++) {
+        const a = (i / 180) * Math.PI * 2;
+        const wobble = reduce ? 0 :
+          (Math.sin(a * 6 + t * 5) * 0.5 + Math.sin(a * 11 - t * 7.3) * 0.3 + Math.sin(a * 3 + t * 2.2) * 0.2) * 19 * energy;
+        const r = base + wobble;
+        const x = C + Math.cos(a) * r, y = C + Math.sin(a) * r;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.closePath();
+      const fill = ctx.createRadialGradient(C, C, 10, C, C, base + 26);
+      fill.addColorStop(0, col + "55"); fill.addColorStop(1, col + "08");
+      ctx.fillStyle = fill; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.stroke();
+
+      ctx.fillStyle = "#e4ecf6"; ctx.globalAlpha = 0.9;
+      ctx.font = "600 54px 'Chakra Petch', 'Segoe UI', sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("P", C, C + 3); ctx.globalAlpha = 1;
+
+      if (!reduce) requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+    return { setState(s) { state = s; if (reduce) requestAnimationFrame(draw); } };
+  })();
+
+  // ======================================================================
+  // Start
+  // ======================================================================
+  trimHistory();
+  renderStats();
+  if (!cfg.elevenKey || !cfg.voiceId) {
+    setState("bereit", "Willkommen. Trag oben rechts unter Einstellungen deine Keys ein.");
+    openSettings();
+  } else {
+    setState("bereit", history.length ? `Gedächtnis: ${history.length / 2 | 0} frühere Turns.` : "");
+  }
+  // Für automatische Tests
+  window.__penny = { SentenceSplitter, cleanForSpeech, get state() { return S.state; }, get history() { return history; } };
+})();
+</script>
+</body>
+</html>

@@ -8,6 +8,28 @@ Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet (Stream) → Satz für Sa
 
 **Q + E** gleichzeitig gedrückt halten, sprechen, loslassen, Antwort hören. Penny fängt schon mit dem ersten Satz an zu sprechen, während Claude den Rest noch schreibt. **Q + E während sie spricht** = sie hört sofort auf und du bist dran. Penny merkt sich die letzten 10 Turns in `penny_gedaechtnis.json`, auch über Neustarts hinweg.
 
+## Schnellstart im Browser (ohne Installation)
+
+`penny.html` ist Penny komplett in einer einzigen Datei: Mikrofon, Spracherkennung, Claude, Stimme und Gedächtnis laufen direkt im Browser. Python, PortAudio oder pynput braucht es dafür nicht.
+
+1. `penny.html` im Browser öffnen (Chrome oder Edge empfohlen, Doppelklick reicht meistens).
+2. Die Einstellungen öffnen sich: Anthropic-Key, ElevenLabs-Key und Voice-ID eintragen, **Verbindung testen**, **Speichern**.
+3. **Penny starten** tippen, Mikrofon erlauben. Penny begrüßt dich.
+4. **Leertaste** oder **Q + E** halten (oder den großen Button gedrückt halten), sprechen, loslassen.
+5. Während Penny spricht: Taste oder Button drücken = sie hört sofort auf.
+
+Blockiert der Browser bei Doppelklick das Mikrofon, die Seite über einen lokalen Server öffnen:
+
+```bash
+cd mintcards-penny
+python -m http.server 8000
+# dann http://localhost:8000/penny.html öffnen
+```
+
+**Wichtig zu den Keys:** Sie werden nur in diesem Browser gespeichert (nur mit Haken bei "Keys auf diesem Gerät merken", sonst nur bis zum Schließen des Tabs). Wer an deinen Rechner kommt, kann sie dort auslesen. Die Datei darum nie auf einen Webserver hochladen oder mit eingetragenen Keys weitergeben. Die Datei selbst enthält keine Keys.
+
+Unterschiede zur Python-Version: Die Tasten funktionieren nur, solange das Browserfenster im Vordergrund ist (dafür geht es auch per Finger auf dem Handy). Gedächtnis und Einstellungen liegen im Browser, nicht in `penny_gedaechtnis.json`. Persönlichkeit, Modell, Stimm-Modell und Tempo lassen sich unter **Mehr Einstellungen** ändern.
+
 ## Dateien
 
 | Datei | Aufgabe |
@@ -25,6 +47,8 @@ Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet (Stream) → Satz für Sa
 | `dashboard.py` | Lokales Web-Dashboard, zeigt Pennys Zustand live |
 | `dashboard/index.html` | Oberfläche des Dashboards |
 | `assistant.py` | Penny als Ganzes: Hirn, Stimme, Status und Ereignisse fürs Dashboard |
+| `penny.html` | Penny komplett im Browser, eine Datei, keine Installation |
+| `tests/web/` | Browser-Test für `penny.html` (Chromium mit Fake-Mikrofon und nachgebauten APIs) |
 | `system_prompt.txt` | Persönlichkeit und Regeln von Penny. **Hier frei anpassen, ohne Code anzufassen** |
 
 ## 1. Keys besorgen

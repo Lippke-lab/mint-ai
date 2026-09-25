@@ -35,3 +35,35 @@ jobs:
 
       - name: Unit-Tests
         run: python -m pytest -q tests
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: mintcards-penny/tests/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Playwright installieren
+        run: |
+          npm install --no-save --no-package-lock playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      - name: penny.html im Browser testen
+        run: node penny_html.test.mjs
+
+      - name: Browser-Zugriff auf die APIs prüfen (CORS)
+        run: |
+          check() {
+            out=$(curl -sS -o /dev/null -D - -X OPTIONS "$1" -H "Origin: null" \
+              -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: $2")
+            echo "$out" | grep -i "access-control-allow" || { echo "::error::$1 erlaubt keinen Browser-Zugriff"; echo "$out"; return 1; }
+          }
+          check https://api.anthropic.com/v1/messages "x-api-key,anthropic-version,anthropic-dangerous-direct-browser-access,content-type"
+          check https://api.elevenlabs.io/v1/speech-to-text "xi-api-key"
+          check "https://api.elevenlabs.io/v1/text-to-speech/test/stream?output_format=pcm_22050" "xi-api-key,content-type"
