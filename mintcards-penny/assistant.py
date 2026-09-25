@@ -110,6 +110,7 @@ class Penny:
                     self.events.publish("gedaechtnis", {"turns": 0})
                     answer = "Erledigt. Wir fangen von vorne an."
                 else:
+                    self.events.publish("frage", {"text": text})
                     self.set_state("denkt")
                     t0 = time.perf_counter()
                     answer = self.brain.ask(text)

@@ -1,661 +1,169 @@
-<title>Penny Kommandozentrale</title>
+<title>Penny</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Manrope:wght@400;500;600&display=swap">
 <style>
-  /* Bewusst ein einziges, dunkles HUD-Design (Jarvis-Look), unabhängig vom System-Theme. */
+  /* Bewusst ein einziges, dunkles Design (Jarvis-Look), unabhängig vom System-Theme. */
   :root {
     color-scheme: dark;
     --ink: #0a111d;
-    --panel: #101a2b;
-    --panel-2: #152238;
-    --line: #22324c;
-    --line-soft: #1a2840;
     --text: #e4ecf6;
     --muted: #8697b2;
-    --faint: #5b6c88;
+    --faint: #56678a;
     --mint: #5ee6c0;
-    --mint-dim: rgba(94, 230, 192, .14);
     --lilac: #9aa8ff;
     --gold: #f2c66d;
     --good: #7fd98f;
-    --warn: #f2c66d;
     --bad: #ff7d7d;
-    --radius: 14px;
     --display: "Chakra Petch", "Rajdhani", "Segoe UI", system-ui, sans-serif;
     --body: "Manrope", "Segoe UI", system-ui, -apple-system, sans-serif;
-    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
-  html, body { background: var(--ink); }
+  html, body { height: 100%; background: var(--ink); }
   body {
     margin: 0;
     color: var(--text);
-    font: 15px/1.5 var(--body);
+    font: 16px/1.5 var(--body);
     padding-inline: 16px;
-    padding-block: 0 32px;
+    padding-block: 0;
     background:
-      radial-gradient(1200px 600px at 12% -10%, rgba(94, 230, 192, .07), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(154, 168, 255, .06), transparent 55%),
+      radial-gradient(900px 700px at 50% 42%, rgba(94, 230, 192, .08), transparent 65%),
       var(--ink);
-    min-height: 100%;
+    overflow: hidden;
   }
-  button, input, select { font: inherit; color: inherit; }
-  :focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; border-radius: 6px; }
-
-  .wrap { max-width: 1400px; margin: 0 auto; }
-
-  /* ---------- Kopfzeile ---------- */
-  .topbar {
-    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
-    padding-block: 18px; border-bottom: 1px solid var(--line-soft); margin-bottom: 20px;
+  .stage {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    justify-items: center;
+    padding-block: 20px;
   }
-  .brand { display: flex; align-items: baseline; gap: 12px; }
-  .brand .penny {
-    font: 700 28px/1 var(--display); letter-spacing: .22em;
+  .wordmark {
+    font: 700 22px/1 var(--display); letter-spacing: .5em; padding-left: .5em;
     background: linear-gradient(100deg, var(--mint), var(--lilac) 55%, var(--gold));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .brand .x { color: var(--faint); font: 500 14px/1 var(--display); }
-  .brand .mc { font: 600 14px/1 var(--display); letter-spacing: .28em; color: var(--muted); }
-  .top-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
-    border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; color: var(--muted);
-    white-space: nowrap;
-  }
-  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-  .chip.live .dot { background: var(--good); box-shadow: 0 0 10px var(--good); }
-  .chip.demo { color: var(--gold); border-color: rgba(242, 198, 109, .35); }
-  .chip.demo .dot { background: var(--gold); }
-  .chip.off .dot { background: var(--bad); }
-  .clock { font: 500 13px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
-
-  .demo-note {
-    margin: -8px 0 18px; padding: 10px 14px; border-radius: 10px; font-size: 13.5px;
-    background: rgba(242, 198, 109, .08); border: 1px solid rgba(242, 198, 109, .25); color: #e9d8b0;
-  }
-  .demo-note code { font: 12.5px var(--mono); color: var(--gold); }
-
-  /* ---------- Raster ---------- */
-  .grid { display: grid; grid-template-columns: minmax(320px, 420px) 1fr; gap: 20px; align-items: start; }
-  .col { display: grid; gap: 20px; min-width: 0; }
-  @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
-
-  .panel {
-    background: linear-gradient(180deg, var(--panel), rgba(16, 26, 43, .92));
-    border: 1px solid var(--line-soft); border-radius: var(--radius); min-width: 0;
-  }
-  .panel-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 14px 18px; border-bottom: 1px solid var(--line-soft);
-  }
-  .panel-head h2 {
-    margin: 0; font: 600 13px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
-  }
-  .panel-head .sub { font-size: 12.5px; color: var(--faint); }
-  .panel-body { padding: 16px 18px; }
-
-  /* ---------- Penny-Kern ---------- */
-  .core { text-align: center; padding: 22px 18px 18px; }
-  .orb-wrap { position: relative; width: min(260px, 70vw); aspect-ratio: 1; margin: 0 auto; max-width: 100%; }
+  .center { display: grid; place-items: center; align-content: center; gap: 6px; width: 100%; min-height: 0; }
+  .orb-wrap { width: min(520px, 72vmin, 100%); aspect-ratio: 1; max-width: 100%; }
   #orb { width: 100%; height: 100%; display: block; }
-  .state-label { margin-top: 8px; font: 600 22px/1.2 var(--display); letter-spacing: .08em; }
-  .state-detail { min-height: 22px; font-size: 13.5px; color: var(--muted); margin-top: 2px; }
-  .state-detail.err { color: var(--bad); }
-  .keys { display: inline-flex; gap: 6px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .state-label { font: 600 clamp(22px, 3.2vmin, 30px)/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; }
+  .caption {
+    max-width: 62ch; min-height: 3em; text-align: center; color: var(--muted);
+    font-size: clamp(15px, 2vmin, 18px); line-height: 1.55; transition: opacity .6s ease;
+    text-wrap: balance;
+  }
+  .caption.fade { opacity: .35; }
+  .caption.err { color: var(--bad); }
+  .foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; color: var(--faint); font-size: 13px; }
+  .keys { display: inline-flex; gap: 6px; align-items: center; }
   kbd {
-    font: 600 12px/1 var(--mono); padding: 6px 8px; border-radius: 6px; color: var(--text);
-    background: var(--panel-2); border: 1px solid var(--line); border-bottom-width: 2px;
+    font: 600 12px/1 var(--display); padding: 6px 8px; border-radius: 6px; color: var(--text);
+    background: #152238; border: 1px solid #22324c; border-bottom-width: 2px;
   }
-  .timings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
-  .timing { padding: 10px 6px; border-radius: 10px; background: rgba(21, 34, 56, .6); border: 1px solid var(--line-soft); }
-  .timing b { display: block; font: 500 17px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
-  .timing span { font-size: 11.5px; color: var(--faint); letter-spacing: .08em; text-transform: uppercase; }
-
-  .sys { display: grid; gap: 0; margin: 0; }
-  .sys div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--line-soft); }
-  .sys div:last-child { border-bottom: 0; }
-  .sys dt { color: var(--muted); font-size: 13.5px; }
-  .sys dd { margin: 0; font: 500 13px/1.5 var(--mono); text-align: right; overflow-wrap: anywhere; }
-  .mem { padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px dashed var(--line-soft); }
-  .mem-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; color: var(--muted); }
-  .mem-row b { font: 500 13px/1.5 var(--mono); color: var(--text); }
-  .meter { height: 4px; border-radius: 4px; background: var(--line-soft); margin-top: 6px; overflow: hidden; }
-  .meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint), var(--lilac)); border-radius: 4px; }
-
-  /* ---------- Gespräch ---------- */
-  .chat { display: flex; flex-direction: column; gap: 12px; max-height: 460px; overflow-y: auto; padding: 16px 18px; }
-  .msg { display: grid; gap: 4px; max-width: 92%; }
-  .msg.you { justify-self: end; margin-left: auto; text-align: right; }
-  .msg .who { font: 600 11px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--faint); }
-  .msg.penny .who { color: var(--mint); }
-  .bubble { padding: 10px 13px; border-radius: 12px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
-  .msg.you .bubble { background: var(--panel-2); border: 1px solid var(--line); border-top-right-radius: 4px; }
-  .msg.penny .bubble { background: var(--mint-dim); border: 1px solid rgba(94, 230, 192, .22); border-top-left-radius: 4px; }
-  .msg .meta { font: 11.5px var(--mono); color: var(--faint); }
-  .empty { color: var(--faint); font-size: 14px; text-align: center; padding: 22px 10px; }
-  .ask { display: flex; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line-soft); flex-wrap: wrap; }
-  .ask input[type="text"] { flex: 1 1 200px; min-width: 0; }
-  .speak-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
-
-  input[type="text"], input[type="number"], select {
-    background: var(--ink); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; min-width: 0;
-  }
-  input::placeholder { color: var(--faint); }
-  .btn {
-    border: 1px solid rgba(94, 230, 192, .45); background: var(--mint-dim); color: var(--mint);
-    padding: 9px 14px; border-radius: 9px; font-weight: 600; cursor: pointer; white-space: nowrap;
-  }
-  .btn:hover { background: rgba(94, 230, 192, .22); }
-  .btn:disabled { opacity: .5; cursor: progress; }
-  .btn.ghost { border-color: var(--line); background: transparent; color: var(--muted); }
-  .icon-btn {
-    border: 0; background: transparent; color: var(--faint); cursor: pointer; padding: 4px 8px; border-radius: 6px;
-    font-size: 12.5px;
-  }
-  .icon-btn:hover { color: var(--bad); background: rgba(255, 125, 125, .08); }
-  .icon-btn.confirm { color: var(--bad); }
-  .form-error { color: var(--bad); font-size: 13px; min-height: 0; }
-  .form-error:empty { display: none; }
-
-  /* ---------- MintCards ---------- */
-  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  @media (max-width: 720px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
-  .kpi { padding: 14px 16px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line-soft); min-width: 0; }
-  .kpi span { display: block; font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
-  .kpi b { display: block; margin-top: 6px; font: 600 24px/1.1 var(--display); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  .kpi small { display: block; margin-top: 4px; font: 12px var(--mono); color: var(--faint); }
-  .pos { color: var(--good); } .neg { color: var(--bad); }
-
-  .mint-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-
-  .list { list-style: none; margin: 0; padding: 6px 0; }
-  .list li { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 9px 18px; }
-  .list li + li { border-top: 1px solid var(--line-soft); }
-  .list li.done .txt { color: var(--faint); text-decoration: line-through; }
-  .list .txt { overflow-wrap: anywhere; font-size: 14.5px; }
-  .list .price { font: 12.5px var(--mono); color: var(--gold); white-space: nowrap; }
-  .check {
-    width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid var(--line); background: transparent; cursor: pointer;
-    display: grid; place-items: center; color: var(--ink); padding: 0;
-  }
-  .done .check { background: var(--mint); border-color: var(--mint); }
-  .add-row { display: flex; gap: 8px; padding: 12px 18px 16px; border-top: 1px solid var(--line-soft); flex-wrap: wrap; }
-  .add-row input[type="text"] { flex: 1 1 160px; }
-  .add-row input[type="number"] { width: 110px; }
-
-  .table-scroll { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
-  th {
-    text-align: left; font: 600 11.5px/1 var(--display); letter-spacing: .14em; text-transform: uppercase;
-    color: var(--faint); padding: 12px 10px; border-bottom: 1px solid var(--line-soft); white-space: nowrap;
-  }
-  td { padding: 11px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
-  tr:last-child td { border-bottom: 0; }
-  th:first-child, td:first-child { padding-left: 18px; }
-  th:last-child, td:last-child { padding-right: 12px; }
-  .num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .card-name { font-weight: 600; white-space: nowrap; }
-  .card-set { display: block; font-size: 12.5px; color: var(--faint); }
-  .setno { font: 12.5px var(--mono); color: var(--muted); white-space: nowrap; }
-  .cond {
-    display: inline-block; min-width: 38px; text-align: center; font: 600 11.5px/1 var(--mono);
-    padding: 5px 7px; border-radius: 6px; border: 1px solid currentColor;
-  }
-  .cond.MT, .cond.NM { color: var(--mint); }
-  .cond.EX { color: var(--lilac); }
-  .cond.GD, .cond.LP { color: var(--gold); }
-  .cond.PL, .cond.PO { color: var(--bad); }
-  .cond.Sealed { color: var(--text); border-style: dashed; }
-
-  details.add-card > summary { list-style: none; cursor: pointer; }
-  details.add-card > summary::-webkit-details-marker { display: none; }
-  .card-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 14px 18px 16px; border-top: 1px solid var(--line-soft); }
-  .card-form label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
-  .card-form .wide { grid-column: span 2; }
-  @media (max-width: 480px) { .card-form .wide { grid-column: auto; } }
-  .card-form .actions { display: flex; align-items: end; gap: 8px; }
-
-  .hint-line { font-size: 12.5px; color: var(--faint); padding: 0 18px 14px; }
-
-  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  .conn { display: inline-flex; align-items: center; gap: 7px; }
+  .conn .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .conn.live .dot { background: var(--good); box-shadow: 0 0 8px var(--good); }
+  .conn.demo { color: var(--gold); }
+  .conn.demo .dot { background: var(--gold); }
+  .conn.off .dot { background: var(--bad); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 
-<div class="wrap">
-  <header class="topbar">
-    <div class="brand" aria-label="Penny für MintCards">
-      <span class="penny">PENNY</span><span class="x">×</span><span class="mc">MINTCARDS</span>
-    </div>
-    <div class="top-meta">
-      <span class="chip" id="conn"><span class="dot"></span><span id="conn-text">Verbinde …</span></span>
-      <span class="clock" id="clock">--:--</span>
-    </div>
-  </header>
+<main class="stage">
+  <div class="wordmark" aria-label="Penny">PENNY</div>
 
-  <p class="demo-note" id="demo-note" hidden>
-    Vorschau mit <strong>Beispieldaten</strong>: keine echten Preise, kein echter Bestand.
-    Echt wird es, wenn du Penny lokal mit <code>python main.py</code> startest. Das Dashboard öffnet sich dann unter <code>localhost:8765</code>.
-  </p>
-
-  <div class="grid">
-    <!-- ======= Penny ======= -->
-    <div class="col">
-      <section class="panel core" aria-labelledby="state-label">
-        <div class="orb-wrap"><canvas id="orb" width="520" height="520" aria-hidden="true"></canvas></div>
-        <div class="state-label" id="state-label">Bereit</div>
-        <div class="state-detail" id="state-detail"></div>
-        <div class="keys" id="keys"><kbd>Q</kbd>+<kbd>E</kbd><span>halten zum Sprechen</span></div>
-        <div class="timings" aria-label="Dauer der letzten Antwort">
-          <div class="timing"><b id="t-stt">–</b><span>Erkennen</span></div>
-          <div class="timing"><b id="t-claude">–</b><span>Denken</span></div>
-          <div class="timing"><b id="t-total">–</b><span>Gesamt</span></div>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="chat-h">
-        <div class="panel-head"><h2 id="chat-h">Gespräch</h2><span class="sub" id="chat-sub"></span></div>
-        <div class="chat" id="chat" aria-live="polite"></div>
-        <form class="ask" id="ask-form">
-          <input type="text" id="ask-input" placeholder="Frag Penny …" autocomplete="off" aria-label="Frage an Penny">
-          <button class="btn" id="ask-btn" type="submit">Senden</button>
-          <label class="speak-toggle"><input type="checkbox" id="ask-speak" checked> Antwort vorlesen</label>
-          <div class="form-error" id="ask-error"></div>
-        </form>
-      </section>
-
-      <section class="panel" aria-labelledby="sys-h">
-        <div class="panel-head"><h2 id="sys-h">System</h2><span class="sub" id="sys-sub"></span></div>
-        <div class="panel-body">
-          <div class="mem">
-            <div class="mem-row"><span>Gedächtnis</span><b id="mem-text">–</b></div>
-            <div class="meter"><i id="mem-bar" style="width:0%"></i></div>
-          </div>
-          <dl class="sys" id="sys"></dl>
-        </div>
-      </section>
-    </div>
-
-    <!-- ======= MintCards ======= -->
-    <div class="col">
-      <section class="kpis" aria-label="Bestandsübersicht" id="kpis"></section>
-
-      <div class="mint-grid">
-        <section class="panel" aria-labelledby="stock-h">
-          <details class="add-card" id="add-card">
-            <summary class="panel-head">
-              <h2 id="stock-h">Bestand</h2>
-              <span class="btn ghost" role="button">+ Karte</span>
-            </summary>
-            <form class="card-form" id="card-form">
-              <label class="wide">Karte<input type="text" id="c-name" placeholder="Glurak ex" required></label>
-              <label>Set<input type="text" id="c-set" placeholder="Obsidianflammen"></label>
-              <label>Nr.<input type="text" id="c-nr" placeholder="223/197"></label>
-              <label>Zustand
-                <select id="c-cond">
-                  <option>MT</option><option selected>NM</option><option>EX</option><option>GD</option>
-                  <option>LP</option><option>PL</option><option>PO</option><option>Sealed</option>
-                </select>
-              </label>
-              <label>Menge<input type="number" id="c-qty" value="1" min="1" step="1"></label>
-              <label>Einkauf €<input type="number" id="c-buy" min="0" step="0.01" placeholder="38,00"></label>
-              <label>Marktwert €<input type="number" id="c-market" min="0" step="0.01" placeholder="52,00"></label>
-              <div class="actions"><button class="btn" type="submit">Speichern</button></div>
-              <div class="form-error wide" id="card-error"></div>
-            </form>
-          </details>
-          <div class="table-scroll">
-            <table>
-              <thead><tr>
-                <th>Karte</th><th>Nr.</th><th>Zustand</th><th class="num">Menge</th>
-                <th class="num">Einkauf</th><th class="num">Marktwert</th><th class="num">Δ</th><th><span class="sr" hidden>Aktion</span></th>
-              </tr></thead>
-              <tbody id="stock"></tbody>
-            </table>
-          </div>
-          <p class="hint-line" id="stock-hint"></p>
-        </section>
-        <section class="panel" aria-labelledby="shop-h">
-          <div class="panel-head"><h2 id="shop-h">Einkaufsliste</h2><span class="sub" id="shop-sub"></span></div>
-          <ul class="list" id="shop"></ul>
-          <form class="add-row" id="shop-form">
-            <input type="text" id="shop-text" placeholder="z. B. Glurak ex SIR" aria-label="Was kaufen?">
-            <input type="number" id="shop-max" placeholder="max. €" min="0" step="0.01" aria-label="Maximalpreis in Euro">
-            <button class="btn" type="submit">Hinzufügen</button>
-            <div class="form-error" id="shop-error"></div>
-          </form>
-        </section>
-
-      </div>
-    </div>
+  <div class="center">
+    <div class="orb-wrap"><canvas id="orb" width="1040" height="1040" aria-hidden="true"></canvas></div>
+    <div class="state-label" id="state-label" aria-live="polite">Bereit</div>
+    <p class="caption" id="caption"></p>
   </div>
-</div>
+
+  <div class="foot">
+    <span class="keys" id="keys"><kbd>Q</kbd>+<kbd>E</kbd><span>halten zum Sprechen</span></span>
+    <span class="conn" id="conn"><span class="dot"></span><span id="conn-text">Verbinde …</span></span>
+  </div>
+</main>
 
 <script>
 (() => {
   "use strict";
-
-  // ---------------- Hilfen ----------------
   const $ = (id) => document.getElementById(id);
-  const eur = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-  const fmtEur = (v) => (v === null || v === undefined ? "–" : eur.format(v));
-  const fmtSec = (v) => (typeof v === "number" ? v.toFixed(1).replace(".", ",") + " s" : "–");
-  const fmtTime = (iso) => {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return isNaN(d) ? "" : d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-  };
-  function h(tag, attrs = {}, ...children) {
-    const el = document.createElement(tag);
-    for (const [k, v] of Object.entries(attrs)) {
-      if (v === null || v === undefined || v === false) continue;
-      if (k === "class") el.className = v;
-      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
-      else el.setAttribute(k, v === true ? "" : v);
-    }
-    for (const c of children.flat()) if (c !== null && c !== undefined) el.append(c);
-    return el;
-  }
 
   const STATES = {
-    bereit:   { label: "Bereit",       detail: "" },
-    hoert_zu: { label: "Hört zu",      detail: "Sprich jetzt, loslassen zum Senden." },
-    versteht: { label: "Versteht",     detail: "Sprache wird in Text umgewandelt." },
-    denkt:    { label: "Denkt nach",   detail: "Claude formuliert die Antwort." },
-    spricht:  { label: "Spricht",      detail: "" },
-    fehler:   { label: "Störung",      detail: "" },
+    bereit:   "Bereit",
+    hoert_zu: "Hört zu",
+    versteht: "Versteht",
+    denkt:    "Denkt nach",
+    spricht:  "Spricht",
+    fehler:   "Störung",
   };
 
-  // ---------------- Zustand ----------------
-  const S = {
-    mode: "verbinde",           // live | demo | getrennt
-    state: "bereit", detail: "",
-    turns: [], stats: {}, info: {}, memory: 0,
-    bestand: [], einkauf: [],
-  };
+  const S = { mode: "verbinde", state: "bereit", detail: "", frage: "", antwort: "", taste: "Q + E" };
 
-  // ---------------- Beispieldaten (nur Vorschau) ----------------
-  const DEMO = {
-    info: { modell: "claude-sonnet-5", stimme: "eleven_flash_v2_5", stt: "scribe_v2", taste: "Q + E",
-            modus: "Vorschau", gedaechtnis_max: 10 },
-    stats: { turns: 2, input_tokens: 3120, output_tokens: 410, kosten_usd: 0.0103 },
-    memory: 2,
-    turns: [
-      { frage: "Lohnt sich ein 151 Display für 120 Euro noch?",
-        antwort: "Für ein versiegeltes 151 Display ist das ein solider Preis, wenn du länger halten willst. Für schnellen Weiterverkauf ist die Marge dünn. Schau vorher kurz bei Cardmarket, was die günstigsten Angebote gerade verlangen.",
-        quelle: "stimme", zeit: null, dauer: { stt: 0.7, claude: 1.8 } },
-      { frage: "Was nehme ich für Versand bei Einzelkarten über 50 Euro?",
-        antwort: "Ab 50 Euro immer versichert, also Einschreiben oder Warensendung mit Sendungsverfolgung. Karte im Toploader, zwischen zwei Pappen, im gepolsterten Umschlag.",
-        quelle: "dashboard", zeit: null, dauer: { claude: 1.5 } },
-    ],
-    bestand: [
-      { id: "d1", name: "Glurak ex", set: "Obsidianflammen", nummer: "223/197", zustand: "NM", menge: 1, einkauf: 38, marktwert: 52 },
-      { id: "d2", name: "Nachtara VMAX", set: "Drachenwandel", nummer: "215/203", zustand: "LP", menge: 1, einkauf: 380, marktwert: 420 },
-      { id: "d3", name: "Mew ex", set: "Karmesin & Purpur 151", nummer: "205/165", zustand: "NM", menge: 2, einkauf: 21, marktwert: 27.5 },
-      { id: "d4", name: "151 Display (36 Booster)", set: "Karmesin & Purpur 151", nummer: "", zustand: "Sealed", menge: 1, einkauf: 120, marktwert: 165 },
-      { id: "d5", name: "Pikachu VMAX", set: "Farbenschock", nummer: "188/185", zustand: "EX", menge: 1, einkauf: 115, marktwert: 104 },
-    ],
-    einkauf: [
-      { id: "e1", text: "Glurak ex SIR, nur NM", maxpreis: 50, erledigt: false },
-      { id: "e2", text: "Toploader 35pt, 100 Stück", maxpreis: 12, erledigt: false },
-      { id: "e3", text: "151 Booster Bundle", maxpreis: 45, erledigt: false },
-      { id: "e4", text: "Versandtaschen C6", maxpreis: null, erledigt: true },
-    ],
-  };
-  const now = Date.now();
-  DEMO.turns[0].zeit = new Date(now - 7 * 60000).toISOString();
-  DEMO.turns[1].zeit = new Date(now - 3 * 60000).toISOString();
-
-  // ---------------- Rendern ----------------
+  // ---------------- Anzeige ----------------
   function renderConn() {
-    const chip = $("conn");
-    chip.className = "chip " + ({ live: "live", demo: "demo", getrennt: "off" }[S.mode] || "");
-    $("conn-text").textContent = { live: "Live verbunden", demo: "Vorschau", getrennt: "Verbindung getrennt", verbinde: "Verbinde …" }[S.mode];
-    $("demo-note").hidden = S.mode !== "demo";
-  }
-
-  function renderState() {
-    const st = STATES[S.state] || STATES.bereit;
-    $("state-label").textContent = st.label;
-    const det = $("state-detail");
-    det.textContent = S.state === "fehler" ? (S.detail || "Etwas ist schiefgelaufen.") : (S.detail || st.detail);
-    det.classList.toggle("err", S.state === "fehler");
-    orb.setState(S.state);
+    const el = $("conn");
+    el.className = "conn " + ({ live: "live", demo: "demo", getrennt: "off" }[S.mode] || "");
+    $("conn-text").textContent = {
+      live: "Live", demo: "Vorschau mit Beispielen", getrennt: "Verbindung getrennt", verbinde: "Verbinde …",
+    }[S.mode];
   }
 
   function renderKeys() {
     const keys = $("keys");
-    const taste = S.info.taste || "Q + E";
     keys.replaceChildren();
-    if (taste === "–") { keys.append(h("span", {}, "Nur Text-Chat, Mikrofon aus")); return; }
-    taste.split("+").map((k) => k.trim()).filter(Boolean).forEach((k, i) => {
+    if (!S.taste || S.taste === "–") { keys.append("Mikrofon aus"); return; }
+    S.taste.split("+").map((k) => k.trim()).filter(Boolean).forEach((k, i) => {
       if (i) keys.append("+");
-      keys.append(h("kbd", {}, k));
+      const kbd = document.createElement("kbd"); kbd.textContent = k; keys.append(kbd);
     });
-    keys.append(h("span", {}, taste === "Enter" ? "drücken zum Sprechen" : "halten zum Sprechen"));
+    const span = document.createElement("span");
+    span.textContent = S.taste === "Enter" ? "drücken zum Sprechen" : "halten zum Sprechen";
+    keys.append(span);
   }
 
-  function renderTurns() {
-    const chat = $("chat");
-    chat.replaceChildren();
-    if (!S.turns.length) {
-      chat.append(h("div", { class: "empty" }, "Noch kein Gespräch. Halte die Tasten oder schreib unten eine Frage."));
-    }
-    for (const t of S.turns) {
-      const src = { stimme: "Stimme", dashboard: "getippt", gedaechtnis: "aus dem Gedächtnis" }[t.quelle] || "";
-      chat.append(
-        h("div", { class: "msg you" },
-          h("div", { class: "who" }, "Du"),
-          h("div", { class: "bubble" }, t.frage),
-          h("div", { class: "meta" }, [fmtTime(t.zeit), src].filter(Boolean).join(" · "))),
-        h("div", { class: "msg penny" },
-          h("div", { class: "who" }, "Penny"),
-          h("div", { class: "bubble" }, t.antwort),
-          h("div", { class: "meta" }, t.dauer && t.dauer.claude ? "gedacht in " + fmtSec(t.dauer.claude) : "")),
-      );
-    }
-    chat.scrollTop = chat.scrollHeight;
-    $("chat-sub").textContent = S.turns.length ? S.turns.length + (S.turns.length === 1 ? " Frage" : " Fragen") : "";
-
-    const last = [...S.turns].reverse().find((t) => t.dauer && (t.dauer.claude || t.dauer.stt));
-    const d = (last && last.dauer) || {};
-    $("t-stt").textContent = fmtSec(d.stt);
-    $("t-claude").textContent = fmtSec(d.claude);
-    $("t-total").textContent = d.claude ? fmtSec((d.stt || 0) + d.claude) : "–";
+  // Untertitel: was du gesagt hast, während Penny nachdenkt; Pennys Antwort, während und nach dem Sprechen.
+  function renderCaption() {
+    const cap = $("caption");
+    cap.classList.remove("err", "fade");
+    if (S.state === "fehler") { cap.textContent = S.detail || "Etwas ist schiefgelaufen."; cap.classList.add("err"); return; }
+    if (S.state === "hoert_zu") { cap.textContent = ""; return; }
+    if (S.state === "versteht" || S.state === "denkt") { cap.textContent = S.frage ? `„${S.frage}“` : ""; return; }
+    cap.textContent = S.antwort;
+    if (S.state === "bereit") cap.classList.add("fade");
   }
 
-  function renderSystem() {
-    const max = S.info.gedaechtnis_max || 10;
-    const mem = Math.min(S.memory || 0, max);
-    const cost = typeof S.stats.kosten_usd === "number" && S.stats.kosten_usd > 0
-      ? "≈ " + S.stats.kosten_usd.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 3 }) + " $"
-      : "–";
-    const tokens = (S.stats.input_tokens || 0) + (S.stats.output_tokens || 0);
-    const rows = [
-      ["Gehirn", S.info.modell || "–"],
-      ["Stimme", S.info.stimme || "–"],
-      ["Erkennung", S.info.stt || "–"],
-      ["Fragen seit Start", String(S.stats.turns || 0)],
-      ["Tokens seit Start", tokens.toLocaleString("de-DE")],
-      ["Kosten seit Start", cost],
-    ];
-    $("mem-text").textContent = `${mem} von ${max} Fragen`;
-    $("mem-bar").style.width = `${(mem / max) * 100}%`;
-    $("sys").replaceChildren(...rows.map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, v))));
-    $("sys-sub").textContent = S.info.modus || "";
+  function render() {
+    $("state-label").textContent = STATES[S.state] || STATES.bereit;
+    orb.setState(S.state);
+    renderCaption();
   }
 
-  function renderKpis() {
-    let karten = 0, ek = 0, mw = 0, ekKnown = 0, mwKnown = 0;
-    for (const c of S.bestand) {
-      const q = c.menge || 1;
-      karten += q;
-      if (c.einkauf != null) { ek += c.einkauf * q; ekKnown++; }
-      if (c.marktwert != null) { mw += c.marktwert * q; mwKnown++; }
-    }
-    const diff = mw - ek;
-    const offen = S.einkauf.filter((e) => !e.erledigt);
-    const budget = offen.reduce((s, e) => s + (e.maxpreis || 0), 0);
-    const tiles = [
-      ["Im Bestand", karten.toLocaleString("de-DE"), `${S.bestand.length} Positionen`, ""],
-      ["Einkaufswert", fmtEur(ekKnown ? ek : null), "was du bezahlt hast", ""],
-      ["Marktwert", fmtEur(mwKnown ? mw : null), "laut deinen Einträgen", ""],
-      ["Potenzial", (ekKnown && mwKnown) ? (diff >= 0 ? "+" : "") + eur.format(diff) : "–",
-        (ekKnown && mwKnown && ek > 0) ? `${diff >= 0 ? "+" : ""}${Math.round((diff / ek) * 100)} % auf Einkauf` : "",
-        diff >= 0 ? "pos" : "neg"],
-    ];
-    $("kpis").replaceChildren(...tiles.map(([k, v, s, cls]) =>
-      h("div", { class: "kpi" }, h("span", {}, k), h("b", { class: cls }, v), h("small", {}, s))));
-    $("shop-sub").textContent = offen.length ? `${offen.length} offen · bis ${eur.format(budget)}` : "alles erledigt";
-  }
-
-  function confirmButton(label, onConfirm) {
-    let armed = false, timer;
-    const btn = h("button", { class: "icon-btn", type: "button", "aria-label": label }, "Entfernen");
-    btn.addEventListener("click", () => {
-      if (!armed) {
-        armed = true; btn.textContent = "Sicher?"; btn.classList.add("confirm");
-        timer = setTimeout(() => { armed = false; btn.textContent = "Entfernen"; btn.classList.remove("confirm"); }, 3000);
-        return;
-      }
-      clearTimeout(timer); onConfirm();
-    });
-    return btn;
-  }
-
-  function renderShop() {
-    const ul = $("shop");
-    ul.replaceChildren();
-    if (!S.einkauf.length) ul.append(h("li", { class: "empty", style: "display:block" }, "Nichts auf der Liste."));
-    const sorted = [...S.einkauf].sort((a, b) => Number(a.erledigt) - Number(b.erledigt));
-    for (const e of sorted) {
-      ul.append(h("li", { class: e.erledigt ? "done" : "" },
-        h("button", { class: "check", type: "button", "aria-pressed": String(!!e.erledigt),
-                      "aria-label": (e.erledigt ? "Wieder öffnen: " : "Abhaken: ") + e.text,
-                      onclick: () => api.toggleEinkauf(e.id) }, e.erledigt ? "✓" : ""),
-        h("span", { class: "txt" }, e.text),
-        h("span", { class: "price" }, e.maxpreis != null ? "max " + eur.format(e.maxpreis) : ""),
-        confirmButton("Entfernen: " + e.text, () => api.removeEinkauf(e.id))));
-    }
-  }
-
-  function renderStock() {
-    const tb = $("stock");
-    tb.replaceChildren();
-    if (!S.bestand.length) {
-      tb.append(h("tr", {}, h("td", { colspan: "8", class: "empty" }, "Noch keine Karten erfasst. Über „+ Karte“ legst du die erste an.")));
-    }
-    const rows = [...S.bestand].sort((a, b) => ((b.marktwert || 0) * (b.menge || 1)) - ((a.marktwert || 0) * (a.menge || 1)));
-    for (const c of rows) {
-      const q = c.menge || 1;
-      const diff = c.einkauf != null && c.marktwert != null ? (c.marktwert - c.einkauf) * q : null;
-      tb.append(h("tr", {},
-        h("td", {}, h("span", { class: "card-name" }, c.name), c.set ? h("span", { class: "card-set" }, c.set) : null),
-        h("td", {}, h("span", { class: "setno" }, c.nummer || "–")),
-        h("td", {}, h("span", { class: "cond " + (c.zustand || "") }, c.zustand || "–")),
-        h("td", { class: "num" }, String(q)),
-        h("td", { class: "num" }, fmtEur(c.einkauf)),
-        h("td", { class: "num" }, fmtEur(c.marktwert)),
-        h("td", { class: "num " + (diff == null ? "" : diff >= 0 ? "pos" : "neg") },
-          diff == null ? "–" : (diff >= 0 ? "+" : "") + eur.format(diff)),
-        h("td", {}, confirmButton("Entfernen: " + c.name, () => api.removeKarte(c.id)))));
-    }
-    $("stock-hint").textContent = "Zustand nach Cardmarket-Skala (MT, NM, EX, GD, LP, PL, PO). Marktwert trägst du selbst ein; Penny kann ihn später automatisch nachschlagen.";
-  }
-
-  function renderAll() {
-    renderConn(); renderState(); renderKeys(); renderTurns(); renderSystem(); renderKpis(); renderShop(); renderStock();
-  }
-
-  // ---------------- Datenquelle: live (localhost) oder Vorschau ----------------
-  async function call(method, url, body) {
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" },
-                                   body: body === undefined ? undefined : JSON.stringify(body) });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.fehler || `Fehler ${res.status}`);
-    return data;
-  }
-  const uid = () => Math.random().toString(36).slice(2, 10);
-
-  const api = {
-    async ask(text, sprechen) {
-      if (S.mode === "live") return call("POST", "/api/ask", { text, sprechen });
-      // Vorschau: kein echtes Gehirn dahinter
-      await demoCycle();
-      const t = { frage: text, antwort: "In der Vorschau kann ich noch nicht wirklich antworten. Starte mich lokal mit python main.py, dann bin ich ganz Ohr.",
-                  quelle: "dashboard", zeit: new Date().toISOString(), dauer: { claude: 0.9 } };
-      S.turns.push(t); renderTurns();
-    },
-    async addEinkauf(text, maxpreis) {
-      if (S.mode === "live") return call("POST", "/api/einkaufsliste", { text, maxpreis });
-      if (!text.trim()) throw new Error("Bitte beschreiben, was gekauft werden soll.");
-      S.einkauf.push({ id: uid(), text: text.trim(), maxpreis: maxpreis === "" ? null : Number(maxpreis), erledigt: false });
-      renderShop(); renderKpis();
-    },
-    async toggleEinkauf(id) {
-      if (S.mode === "live") return call("POST", `/api/einkaufsliste/${id}/toggle`, {}).catch(showGlobalError);
-      const e = S.einkauf.find((x) => x.id === id); if (e) e.erledigt = !e.erledigt;
-      renderShop(); renderKpis();
-    },
-    async removeEinkauf(id) {
-      if (S.mode === "live") return call("DELETE", `/api/einkaufsliste/${id}`, {}).catch(showGlobalError);
-      S.einkauf = S.einkauf.filter((x) => x.id !== id); renderShop(); renderKpis();
-    },
-    async addKarte(data) {
-      if (S.mode === "live") return call("POST", "/api/bestand", data);
-      if (!data.name.trim()) throw new Error("Bitte den Namen der Karte angeben.");
-      const num = (v) => (v === "" ? null : Number(v));
-      S.bestand.push({ id: uid(), ...data, menge: Number(data.menge) || 1, einkauf: num(data.einkauf), marktwert: num(data.marktwert) });
-      renderStock(); renderKpis();
-    },
-    async removeKarte(id) {
-      if (S.mode === "live") return call("DELETE", `/api/bestand/${id}`, {}).catch(showGlobalError);
-      S.bestand = S.bestand.filter((x) => x.id !== id); renderStock(); renderKpis();
-    },
-  };
-
-  function showGlobalError(err) {
-    S.state = "fehler"; S.detail = err.message; renderState();
-  }
-
-  function applyState(data) {
-    const p = data.penny || {};
-    S.state = p.state || "bereit"; S.detail = "";
-    S.turns = p.turns || []; S.stats = p.stats || {}; S.info = p.info || {};
-    S.memory = p.gedaechtnis_turns || 0;
-    S.bestand = (data.mintcards || {}).bestand || [];
-    S.einkauf = (data.mintcards || {}).einkaufsliste || [];
+  // ---------------- Verbindung zu Penny (localhost) oder Vorschau ----------------
+  function applySnapshot(p) {
+    S.state = p.state || "bereit";
+    S.taste = (p.info && p.info.taste) || S.taste;
+    const last = (p.turns || []).slice(-1)[0];
+    if (last) { S.frage = last.frage; S.antwort = last.antwort; }
   }
 
   function connectEvents() {
     const es = new EventSource("/api/events");
-    es.addEventListener("open", () => { if (S.mode !== "live") { S.mode = "live"; refresh(); } });
+    es.addEventListener("open", () => { S.mode = "live"; renderConn(); });
     es.addEventListener("error", () => { S.mode = "getrennt"; renderConn(); });
     es.addEventListener("status", (ev) => {
-      const d = JSON.parse(ev.data); S.state = d.state; S.detail = d.detail || ""; renderState();
+      const d = JSON.parse(ev.data); S.state = d.state; S.detail = d.detail || "";
+      if (S.state === "hoert_zu") { S.frage = ""; S.antwort = ""; }
+      render();
     });
+    es.addEventListener("frage", (ev) => { S.frage = JSON.parse(ev.data).text; render(); });
     es.addEventListener("turn", (ev) => {
-      const d = JSON.parse(ev.data);
-      S.turns.push(d); S.stats = d.stats || S.stats; S.memory = d.gedaechtnis_turns ?? S.memory;
-      renderTurns(); renderSystem();
+      const d = JSON.parse(ev.data); S.frage = d.frage; S.antwort = d.antwort; render();
     });
-    es.addEventListener("gedaechtnis", () => { S.turns = []; S.memory = 0; renderTurns(); renderSystem(); });
-    es.addEventListener("mintcards", (ev) => {
-      const d = JSON.parse(ev.data); S.bestand = d.bestand; S.einkauf = d.einkaufsliste;
-      renderKpis(); renderShop(); renderStock();
-    });
-  }
-
-  async function refresh() {
-    try {
-      const res = await fetch("/api/state", { cache: "no-store" });
-      applyState(await res.json()); S.mode = "live";
-    } catch (_) { S.mode = "getrennt"; }
-    renderAll();
+    es.addEventListener("gedaechtnis", () => { S.frage = ""; S.antwort = ""; render(); });
   }
 
   async function boot() {
-    let live = false;
     if (location.protocol.startsWith("http")) {
       try {
         const ctrl = new AbortController();
@@ -663,77 +171,46 @@
         const res = await fetch("/api/state", { cache: "no-store", signal: ctrl.signal });
         clearTimeout(timer);
         const data = res.ok ? await res.json() : null;
-        if (data && data.penny) { applyState(data); live = true; }
+        if (data && data.penny) {
+          applySnapshot(data.penny); S.mode = "live";
+          renderConn(); renderKeys(); render(); connectEvents();
+          return;
+        }
       } catch (_) { /* keine lokale Penny: Vorschau */ }
     }
-    if (live) { S.mode = "live"; renderAll(); connectEvents(); return; }
-    S.mode = "demo";
-    Object.assign(S, { info: DEMO.info, stats: DEMO.stats, memory: DEMO.memory,
-                       turns: DEMO.turns.map((t) => ({ ...t })),
-                       bestand: DEMO.bestand.map((c) => ({ ...c })), einkauf: DEMO.einkauf.map((e) => ({ ...e })) });
-    renderAll();
-    setTimeout(demoCycle, 1800);
+    S.mode = "demo"; renderConn(); renderKeys(); render();
+    demoLoop();
   }
 
-  // Vorschau: einmal den Ablauf Zuhören → Verstehen → Denken → Sprechen zeigen
-  let cycling = false;
-  function demoCycle() {
-    if (cycling) return Promise.resolve();
-    cycling = true;
-    const steps = [["hoert_zu", 2200], ["versteht", 900], ["denkt", 1600], ["spricht", 2600], ["bereit", 0]];
-    return new Promise((resolve) => {
-      let i = 0;
-      const next = () => {
-        const [st, ms] = steps[i++]; S.state = st; S.detail = ""; renderState();
-        if (i < steps.length) setTimeout(next, ms); else { cycling = false; resolve(); }
-      };
-      next();
-    });
+  // Vorschau: Beispiel-Ablauf in Schleife, damit man jeden Zustand einmal sieht
+  const DEMO = [
+    { frage: "Lohnt sich ein 151 Display für 120 Euro noch?",
+      antwort: "Für ein versiegeltes 151 Display ist das ein solider Preis, wenn du länger halten willst. Für schnellen Weiterverkauf ist die Marge dünn." },
+    { frage: "Wie verschicke ich Karten über 50 Euro?",
+      antwort: "Ab 50 Euro immer mit Sendungsverfolgung. Karte im Toploader, zwischen zwei Pappen, im gepolsterten Umschlag." },
+  ];
+  function demoLoop() {
+    let n = 0;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const set = (state, extra = {}) => { Object.assign(S, { state }, extra); render(); };
+    (async function run() {
+      await wait(1500);
+      for (;;) {
+        const ex = DEMO[n++ % DEMO.length];
+        set("hoert_zu", { frage: "", antwort: "" }); await wait(2600);
+        set("versteht", { frage: ex.frage }); await wait(900);
+        set("denkt"); await wait(1700);
+        set("spricht", { antwort: ex.antwort }); await wait(4200);
+        set("bereit"); await wait(5000);
+      }
+    })();
   }
-
-  // ---------------- Formulare ----------------
-  $("ask-form").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const input = $("ask-input"), btn = $("ask-btn"), err = $("ask-error");
-    const text = input.value.trim();
-    if (!text) { err.textContent = "Bitte eine Frage eingeben."; return; }
-    err.textContent = ""; btn.disabled = true;
-    try { await api.ask(text, $("ask-speak").checked); input.value = ""; }
-    catch (e) { err.textContent = e.message; }
-    finally { btn.disabled = false; input.focus(); }
-  });
-
-  $("shop-form").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const err = $("shop-error");
-    try {
-      await api.addEinkauf($("shop-text").value, $("shop-max").value);
-      $("shop-text").value = ""; $("shop-max").value = ""; err.textContent = "";
-    } catch (e) { err.textContent = e.message; }
-  });
-
-  $("card-form").addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const err = $("card-error");
-    const data = { name: $("c-name").value, set: $("c-set").value, nummer: $("c-nr").value,
-                   zustand: $("c-cond").value, menge: $("c-qty").value,
-                   einkauf: $("c-buy").value, marktwert: $("c-market").value };
-    try {
-      await api.addKarte(data);
-      ["c-name", "c-set", "c-nr", "c-buy", "c-market"].forEach((id) => { $(id).value = ""; });
-      $("c-qty").value = "1"; err.textContent = ""; $("add-card").open = false;
-    } catch (e) { err.textContent = e.message; }
-  });
-
-  // ---------------- Uhr ----------------
-  const tick = () => { $("clock").textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }); };
-  tick(); setInterval(tick, 15000);
 
   // ---------------- Pennys Kern (Canvas) ----------------
   const orb = (() => {
     const canvas = $("orb"), ctx = canvas.getContext("2d");
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const W = canvas.width, C = W / 2;
+    const W = 520, C = W / 2, SCALE = canvas.width / W;
     const COLORS = { bereit: "#5ee6c0", hoert_zu: "#5ee6c0", versteht: "#9aa8ff", denkt: "#9aa8ff", spricht: "#f2c66d", fehler: "#ff7d7d" };
     let state = "bereit", energy = 0, target = 0, t0 = performance.now();
 
@@ -746,6 +223,7 @@
     function draw(now) {
       const t = (now - t0) / 1000;
       energy += (target - energy) * 0.06;
+      ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
       ctx.clearRect(0, 0, W, W);
       const col = COLORS[state] || COLORS.bereit;
 
@@ -813,6 +291,7 @@
     requestAnimationFrame(draw);
     return { setState(s) { state = s; if (reduce) requestAnimationFrame(draw); } };
   })();
+
 
   boot();
 })();

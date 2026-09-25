@@ -29,7 +29,6 @@ class Config:
     claude_effort: str
     history_turns: int
     memory_file: Path
-    data_dir: Path
     dashboard: bool
     dashboard_port: int
     dashboard_open: bool
@@ -115,7 +114,6 @@ def load_config(require_keys: tuple[str, ...] = REQUIRED_KEYS) -> Config:
         claude_effort=_choice("CLAUDE_EFFORT", "low", ("low", "medium", "high")),
         history_turns=history_turns,
         memory_file=_path("MEMORY_FILE", "penny_gedaechtnis.json"),
-        data_dir=_path("DATA_DIR", "daten"),
         dashboard=_bool("DASHBOARD", True),
         dashboard_port=_int("DASHBOARD_PORT", 8765),
         dashboard_open=_bool("DASHBOARD_OPEN", True),

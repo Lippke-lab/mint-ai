@@ -20,10 +20,9 @@ Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet → ElevenLabs TTS → La
 | `tts_elevenlabs.py` | Text zu Sprache über ElevenLabs und Abspielen |
 | `claude_brain.py` | Gesprächsverlauf plus Aufruf von Claude über die Anthropic API |
 | `smoke_test.py` | API-Test von Claude, TTS und STT ohne Audio-Hardware (auch in GitHub Actions) |
-| `dashboard.py` | Lokales Web-Dashboard (Server, nur Standardbibliothek) |
+| `dashboard.py` | Lokales Web-Dashboard, zeigt Pennys Zustand live |
 | `dashboard/index.html` | Oberfläche des Dashboards |
 | `assistant.py` | Penny als Ganzes: Hirn, Stimme, Status und Ereignisse fürs Dashboard |
-| `mintcards_data.py` | Bestand und Einkaufsliste als JSON in `daten/` |
 | `system_prompt.txt` | Persönlichkeit und Regeln von Penny. **Hier frei anpassen, ohne Code anzufassen** |
 
 ## 1. Keys besorgen
@@ -125,22 +124,12 @@ Hinweise zu `hold`:
 
 ## Dashboard
 
-Mit `python main.py` öffnet sich automatisch das Dashboard unter **http://localhost:8765**:
+Mit `python main.py` öffnet sich automatisch das Dashboard unter **http://localhost:8765**. Es zeigt nur Penny: ihren animierten Kern, ob sie gerade zuhört, versteht, nachdenkt oder spricht, und als Untertitel deine Frage bzw. ihre Antwort.
 
-- **Penny:** animierter Kern, der zeigt, ob Penny zuhört, versteht, denkt oder spricht. Dazu die Dauer der letzten Antwort.
-- **Gespräch:** alle Fragen und Antworten live. Unten kannst du Penny auch schreiben, wahlweise mit vorgelesener Antwort.
-- **System:** Modell, Stimme, Gedächtnis-Füllstand, Tokens und ungefähre Kosten seit dem Start.
-- **MintCards:** Kennzahlen (Karten, Einkaufswert, Marktwert, Potenzial), Bestand mit Zustand nach Cardmarket-Skala, Einkaufsliste mit Maximalpreis.
-
-Bestand und Einkaufsliste liegen in `daten/bestand.json` und `daten/einkaufsliste.json` und landen nie im Repo.
-
-```bash
-python dashboard.py                # nur Dashboard mit Text-Chat, ohne Mikrofon
-python dashboard.py --ohne-claude  # Dashboard testen ganz ohne API-Guthaben
-python main.py --kein-dashboard    # Sprache ohne Dashboard
-```
-
-Das Dashboard ist nur auf deinem eigenen Rechner erreichbar (127.0.0.1) und blockt Anfragen fremder Webseiten. Einstellungen: `DASHBOARD`, `DASHBOARD_PORT`, `DASHBOARD_OPEN`, `DATA_DIR` in der `.env`.
+- `python main.py --kein-dashboard` startet Penny ohne Dashboard.
+- `python main.py --ohne-claude` zeigt das Dashboard live, ganz ohne API-Guthaben.
+- Das Dashboard ist nur auf deinem eigenen Rechner erreichbar (127.0.0.1).
+- Einstellungen: `DASHBOARD`, `DASHBOARD_PORT`, `DASHBOARD_OPEN` in der `.env`.
 
 ## Gedächtnis
 

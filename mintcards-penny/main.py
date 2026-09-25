@@ -98,10 +98,9 @@ def main() -> int:
     dash = None
     if cfg.dashboard and "--kein-dashboard" not in sys.argv:
         from dashboard import Dashboard, open_browser
-        from mintcards_data import MintCardsData
 
         try:
-            dash = Dashboard(penny, MintCardsData(cfg.data_dir), cfg.dashboard_port)
+            dash = Dashboard(penny, cfg.dashboard_port)
             dash.start()
             if cfg.dashboard_open:
                 open_browser(dash.url)
