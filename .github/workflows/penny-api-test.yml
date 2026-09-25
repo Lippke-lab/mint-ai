@@ -1,12 +1,12 @@
-name: Jarvis API-Test
+name: Penny API-Test
 
-# Nur manuell starten (Actions-Tab → "Jarvis API-Test" → "Run workflow"),
+# Nur manuell starten (Actions-Tab → "Penny API-Test" → "Run workflow"),
 # weil jeder Lauf ein paar Cent API-Guthaben kostet.
 on:
   workflow_dispatch:
     inputs:
       question:
-        description: "Testfrage an Jarvis (leer = Standardfrage)"
+        description: "Testfrage an Penny (leer = Standardfrage)"
         required: false
         default: ""
 
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: mintcards-jarvis
+        working-directory: mintcards-penny
     steps:
       - uses: actions/checkout@v4
 
@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: mintcards-jarvis/requirements.txt
+          cache-dependency-path: mintcards-penny/requirements.txt
 
       - name: Abhängigkeiten installieren
         run: pip install -r requirements.txt
@@ -44,7 +44,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: jarvis-audio
-          path: mintcards-jarvis/smoke_output/
+          name: penny-audio
+          path: mintcards-penny/smoke_output/
           if-no-files-found: ignore
           retention-days: 7

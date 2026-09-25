@@ -107,6 +107,6 @@ if __name__ == "__main__":
     print(f"Text-Chat mit {cfg.claude_model}. Leere Zeile oder Ctrl+C beendet.")
     try:
         while (text := input("\nDu: ").strip()):
-            print("Jarvis:", brain.ask(text))
+            print("Penny:", brain.ask(text))
     except (KeyboardInterrupt, EOFError):
         pass

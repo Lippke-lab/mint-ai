@@ -1,4 +1,4 @@
-"""MintCards Jarvis: Push-to-Talk -> ElevenLabs STT -> Claude -> ElevenLabs TTS."""
+"""MintCards Penny: Push-to-Talk -> ElevenLabs STT -> Claude -> ElevenLabs TTS."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from elevenlabs.core.api_error import ApiError as ElevenLabsError
 from claude_brain import ClaudeBrain, EchoBrain
 from config import REQUIRED_KEYS, SYSTEM_PROMPT_FILE, load_config_or_exit
 
-log = logging.getLogger("jarvis")
+log = logging.getLogger("penny")
 
 # Sprachbefehle, die lokal verarbeitet werden, ohne Claude zu fragen.
 RESET_COMMANDS = ("neues gespräch", "vergiss alles", "reset")
@@ -56,7 +56,7 @@ def run_turn(ptt, stt, brain, tts, turn: int) -> None:
 
     t0 = time.perf_counter()
     answer = brain.ask(text)
-    log.info("[%d] JARVIS (%.1fs Claude): %s", turn, time.perf_counter() - t0, answer)
+    log.info("[%d] PENNY  (%.1fs Claude): %s", turn, time.perf_counter() - t0, answer)
 
     t0 = time.perf_counter()
     tts.speak(answer)
@@ -65,7 +65,7 @@ def run_turn(ptt, stt, brain, tts, turn: int) -> None:
 
 def main() -> int:
     setup_logging()
-    # --ohne-claude: Jarvis wiederholt nur, was er verstanden hat (kein Anthropic-Key nötig)
+    # --ohne-claude: Penny wiederholt nur, was sie verstanden hat (kein Anthropic-Key nötig)
     echo_mode = "--ohne-claude" in sys.argv
     required = tuple(k for k in REQUIRED_KEYS if not (echo_mode and k == "ANTHROPIC_API_KEY"))
     cfg = load_config_or_exit(required)
@@ -97,7 +97,7 @@ def main() -> int:
               "Tipp: Setze PTT_MODE=enter in der .env.", file=sys.stderr)
         return 2
 
-    print("\n=== MintCards Jarvis ===")
+    print("\n=== MintCards Penny ===")
     print(f"Modell: {'echo (ohne Claude)' if echo_mode else cfg.claude_model} | Stimme: {cfg.tts_model} | STT: {cfg.stt_model}")
     print(ptt.hint)
     print('Sag "neues Gespräch" zum Zurücksetzen. Ctrl+C beendet.\n')
@@ -128,7 +128,7 @@ def main() -> int:
                 log.debug("Details", exc_info=True)
             print(ptt.hint)
     except KeyboardInterrupt:
-        print("\nJarvis fährt herunter. Bis später.")
+        print("\nPenny fährt herunter. Bis später.")
         return 0
     finally:
         ptt.close()

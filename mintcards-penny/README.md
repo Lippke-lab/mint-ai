@@ -1,6 +1,6 @@
-# MintCards Jarvis
+# MintCards Penny
 
-Sprachassistent im Jarvis-Stil für das Pokémon-Karten-Business **Mintcards**.
+Penny, die Sprachassistentin im Jarvis-Stil für das Pokémon-Karten-Business **Mintcards**.
 
 ```
 Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet → ElevenLabs TTS → Lautsprecher
@@ -20,7 +20,7 @@ Taste gedrückt halten, sprechen, loslassen, Antwort hören. Der Verlauf der let
 | `tts_elevenlabs.py` | Text zu Sprache über ElevenLabs und Abspielen |
 | `claude_brain.py` | Gesprächsverlauf plus Aufruf von Claude über die Anthropic API |
 | `smoke_test.py` | API-Test von Claude, TTS und STT ohne Audio-Hardware (auch in GitHub Actions) |
-| `system_prompt.txt` | Persönlichkeit und Regeln von Jarvis. **Hier frei anpassen, ohne Code anzufassen** |
+| `system_prompt.txt` | Persönlichkeit und Regeln von Penny. **Hier frei anpassen, ohne Code anzufassen** |
 
 ## 1. Keys besorgen
 
@@ -33,7 +33,7 @@ Taste gedrückt halten, sprechen, loslassen, Antwort hören. Der Verlauf der let
 Voraussetzung: Python 3.11 oder neuer.
 
 ```bash
-cd mintcards-jarvis
+cd mintcards-penny
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
@@ -80,8 +80,8 @@ Funktionieren alle vier, die volle Schleife starten.
 Mikrofon und Lautsprecher lassen sich nur lokal testen. Die drei Dienste (Claude, TTS, STT) prüft aber auch GitHub Actions:
 
 1. Im Repo unter **Settings → Secrets and variables → Actions → New repository secret** drei Secrets anlegen: `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`.
-2. Im Tab **Actions** links **Jarvis API-Test** wählen → **Run workflow**. Optional eine eigene Testfrage eintragen.
-3. Nach ca. 1 Minute zeigt der Lauf eine Tabelle mit ✅/❌ pro Schritt. Unter **Artifacts → jarvis-audio** liegt Jarvis' gesprochene Antwort als WAV zum Anhören.
+2. Im Tab **Actions** links **Penny API-Test** wählen → **Run workflow**. Optional eine eigene Testfrage eintragen.
+3. Nach ca. 1 Minute zeigt der Lauf eine Tabelle mit ✅/❌ pro Schritt. Unter **Artifacts → penny-audio** liegt Pennys gesprochene Antwort als WAV zum Anhören.
 
 Ablauf: Claude beantwortet die Testfrage, ElevenLabs spricht die Antwort, Scribe wandelt die Aufnahme zurück in Text. Lokal geht dasselbe mit `python smoke_test.py`. Ohne `ANTHROPIC_API_KEY` wird der Claude-Schritt übersprungen (⏭️), TTS und STT werden trotzdem geprüft.
 
@@ -90,7 +90,7 @@ Ablauf: Claude beantwortet die Testfrage, ElevenLabs spricht die Antwort, Scribe
 ```bash
 python main.py            # normal
 python main.py --debug    # zusätzlich Token-Zahlen, Latenzen, Fehlerdetails
-python main.py --ohne-claude  # Test ohne Anthropic-Guthaben: Jarvis wiederholt nur, was er verstanden hat
+python main.py --ohne-claude  # Test ohne Anthropic-Guthaben: Penny wiederholt nur, was sie verstanden hat
 ```
 
 - **Leertaste halten** = aufnehmen, **loslassen** = senden.
@@ -101,7 +101,7 @@ Im Terminal wird jeder Turn mitgeloggt:
 
 ```
 14:02:11 INFO    [1] DU     (0.8s STT): Was bringt ein Glurak ex aus Obsidianflammen gerade?
-14:02:13 INFO    [1] JARVIS (1.9s Claude): Die Special Illustration Rare liegt grob bei ...
+14:02:13 INFO    [1] PENNY  (1.9s Claude): Die Special Illustration Rare liegt grob bei ...
 ```
 
 ## Push-to-Talk-Modi

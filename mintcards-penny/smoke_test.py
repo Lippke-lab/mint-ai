@@ -44,7 +44,7 @@ def main() -> int:
     cfg = load_config_or_exit(require_keys=("ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"))
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    wav_path = out_dir / "jarvis_antwort.wav"
+    wav_path = out_dir / "penny_antwort.wav"
 
     results: list[tuple[str, bool | None, str]] = []  # None = übersprungen
 
@@ -99,12 +99,12 @@ def main() -> int:
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as fh:
-            fh.write("## MintCards Jarvis: API-Test\n\n| Schritt | Status | Details |\n|---|---|---|\n")
+            fh.write("## MintCards Penny: API-Test\n\n| Schritt | Status | Details |\n|---|---|---|\n")
             for name, passed, detail in results:
                 safe = detail.replace("|", "\\|").replace("\n", " ")
                 fh.write(f"| {name} | {'⏭️' if passed is None else '✅' if passed else '❌'} | {safe} |\n")
             if wav_path.exists():
-                fh.write("\nDie Audiodatei liegt unten unter **Artifacts → jarvis-audio** zum Download.\n")
+                fh.write("\nDie Audiodatei liegt unten unter **Artifacts → penny-audio** zum Download.\n")
     print("\nERGEBNIS:", "alles ok" if ok else "mindestens ein Schritt fehlgeschlagen")
     return 0 if ok else 1
 
