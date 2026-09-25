@@ -67,7 +67,12 @@ def load_config(require_keys: tuple[str, ...] = REQUIRED_KEYS) -> Config:
             f"Fehlende Konfiguration: {', '.join(missing)}\n"
             f"Lege die Datei {ENV_FILE} an (Vorlage: .env.example) und trage die Werte ein."
         )
-        if not ENV_FILE.exists():
+        if os.getenv("GITHUB_ACTIONS"):
+            hint = (
+                f"Fehlende GitHub Secrets: {', '.join(missing)}\n"
+                "Anlegen unter: Repo → Settings → Secrets and variables → Actions → New repository secret."
+            )
+        elif not ENV_FILE.exists():
             hint += "\nHinweis: Die Datei .env existiert noch nicht."
         raise ConfigError(hint)
 

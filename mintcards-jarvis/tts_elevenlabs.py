@@ -6,8 +6,6 @@ import logging
 
 from elevenlabs.client import ElevenLabs
 
-import audio_output
-
 log = logging.getLogger(__name__)
 
 # Rohes PCM spart einen MP3-Decoder (kein ffmpeg nötig) und spielt direkt über sounddevice.
@@ -41,6 +39,8 @@ class TextToSpeech:
     def speak(self, text: str) -> None:
         if not text.strip():
             return
+        import audio_output  # erst hier laden, damit synthesize() ohne Soundkarte läuft
+
         audio_output.play_pcm(self.synthesize(text), PCM_RATE)
 
 

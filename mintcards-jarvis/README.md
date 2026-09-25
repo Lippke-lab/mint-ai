@@ -19,6 +19,7 @@ Taste gedrückt halten, sprechen, loslassen, Antwort hören. Der Verlauf der let
 | `stt_elevenlabs.py` | Sprache zu Text über ElevenLabs Scribe |
 | `tts_elevenlabs.py` | Text zu Sprache über ElevenLabs und Abspielen |
 | `claude_brain.py` | Gesprächsverlauf plus Aufruf von Claude über die Anthropic API |
+| `smoke_test.py` | API-Test von Claude, TTS und STT ohne Audio-Hardware (auch in GitHub Actions) |
 | `system_prompt.txt` | Persönlichkeit und Regeln von Jarvis. **Hier frei anpassen, ohne Code anzufassen** |
 
 ## 1. Keys besorgen
@@ -73,6 +74,16 @@ python tts_elevenlabs.py "Systeme online. Mintcards steht bereit."
 ```
 
 Funktionieren alle vier, die volle Schleife starten.
+
+### Alternative: API-Test über GitHub (ohne eigenen Rechner)
+
+Mikrofon und Lautsprecher lassen sich nur lokal testen. Die drei Dienste (Claude, TTS, STT) prüft aber auch GitHub Actions:
+
+1. Im Repo unter **Settings → Secrets and variables → Actions → New repository secret** drei Secrets anlegen: `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`.
+2. Im Tab **Actions** links **Jarvis API-Test** wählen → **Run workflow**. Optional eine eigene Testfrage eintragen.
+3. Nach ca. 1 Minute zeigt der Lauf eine Tabelle mit ✅/❌ pro Schritt. Unter **Artifacts → jarvis-audio** liegt Jarvis' gesprochene Antwort als WAV zum Anhören.
+
+Ablauf: Claude beantwortet die Testfrage, ElevenLabs spricht die Antwort, Scribe wandelt die Aufnahme zurück in Text. Lokal geht dasselbe mit `python smoke_test.py`.
 
 ## 5. Starten
 
