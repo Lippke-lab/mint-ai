@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
+from datetime import datetime
 from pathlib import Path
 
 import anthropic
@@ -21,22 +24,82 @@ def load_system_prompt(path: Path) -> str:
     return text
 
 
+class Memory:
+    """Speichert den Gesprächsverlauf als JSON-Datei, damit Penny ihn nach Neustarts noch kennt."""
+
+    VERSION = 1
+
+    def __init__(self, path: Path):
+        self.path = path
+
+    def load(self) -> list[dict]:
+        if not self.path.exists():
+            return []
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            messages = data["messages"]
+            valid = all(
+                isinstance(m, dict) and m.get("role") in ("user", "assistant")
+                and isinstance(m.get("content"), str)
+                for m in messages
+            )
+            if not valid:
+                raise ValueError("unerwartetes Format")
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            backup = self.path.with_suffix(".defekt.json")
+            log.warning("Gedächtnisdatei %s unlesbar (%s). Sicherung: %s. Starte mit leerem Gedächtnis.",
+                        self.path.name, exc, backup.name)
+            try:
+                self.path.replace(backup)
+            except OSError:
+                pass
+            return []
+        # Die API erwartet, dass der Verlauf mit einer Nutzer-Nachricht beginnt.
+        while messages and messages[0]["role"] != "user":
+            messages.pop(0)
+        return messages
+
+    def save(self, messages: list[dict]) -> None:
+        data = {
+            "version": self.VERSION,
+            "updated": datetime.now().isoformat(timespec="seconds"),
+            "messages": messages,
+        }
+        # Erst in Temp-Datei schreiben, dann ersetzen: bei Absturz bleibt die alte Datei heil.
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, self.path)
+
+
 class ClaudeBrain:
     def __init__(self, api_key: str, model: str, system_prompt_path: Path,
-                 history_turns: int = 10, effort: str = "low"):
+                 history_turns: int = 10, effort: str = "low", memory: Memory | None = None):
         self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
         self.effort = effort
         self.system_prompt_path = system_prompt_path
         self.system_prompt = load_system_prompt(system_prompt_path)
         self.history_turns = history_turns
-        self.history: list[dict] = []  # abwechselnd user / assistant
+        self.memory = memory
+        self.history: list[dict] = memory.load() if memory else []  # abwechselnd user / assistant
+        self._trim()
+        if self.history:
+            log.info("Gedächtnis geladen: %d frühere Turns.", len(self.history) // 2)
 
     def reload_system_prompt(self) -> None:
         self.system_prompt = load_system_prompt(self.system_prompt_path)
 
     def reset(self) -> None:
         self.history.clear()
+        self._persist()
+
+    def _persist(self) -> None:
+        if not self.memory:
+            return
+        try:
+            self.memory.save(self.history)
+        except OSError as exc:
+            log.error("Gedächtnis konnte nicht gespeichert werden: %s", exc)
 
     def _trim(self) -> None:
         # Ein Turn = Nutzer-Nachricht + Antwort. Ältere Turns fliegen raus.
@@ -76,6 +139,7 @@ class ClaudeBrain:
 
         self.history = messages + [{"role": "assistant", "content": answer}]
         self._trim()
+        self._persist()
         return answer
 
 
@@ -103,7 +167,7 @@ if __name__ == "__main__":
 
     cfg = load_config_or_exit(require_keys=("ANTHROPIC_API_KEY",))
     brain = ClaudeBrain(cfg.anthropic_api_key, cfg.claude_model, SYSTEM_PROMPT_FILE,
-                        cfg.history_turns, cfg.claude_effort)
+                        cfg.history_turns, cfg.claude_effort, Memory(cfg.memory_file))
     print(f"Text-Chat mit {cfg.claude_model}. Leere Zeile oder Ctrl+C beendet.")
     try:
         while (text := input("\nDu: ").strip()):

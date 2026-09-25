@@ -28,6 +28,7 @@ class Config:
     claude_model: str
     claude_effort: str
     history_turns: int
+    memory_file: Path
     tts_model: str
     stt_model: str
     language: str
@@ -45,6 +46,12 @@ def _int(name: str, default: int) -> int:
         return int(raw)
     except ValueError as exc:
         raise ConfigError(f"{name} muss eine Zahl sein, ist aber '{raw}'.") from exc
+
+
+def _path(name: str, default: str) -> Path:
+    """Relative Pfade gelten relativ zum Projektordner, nicht zum aktuellen Verzeichnis."""
+    path = Path(os.getenv(name, "").strip() or default).expanduser()
+    return path if path.is_absolute() else BASE_DIR / path
 
 
 def _choice(name: str, default: str, allowed: tuple[str, ...]) -> str:
@@ -92,11 +99,12 @@ def load_config(require_keys: tuple[str, ...] = REQUIRED_KEYS) -> Config:
         claude_model=os.getenv("CLAUDE_MODEL", "").strip() or "claude-sonnet-5",
         claude_effort=_choice("CLAUDE_EFFORT", "low", ("low", "medium", "high")),
         history_turns=history_turns,
+        memory_file=_path("MEMORY_FILE", "penny_gedaechtnis.json"),
         tts_model=os.getenv("ELEVENLABS_TTS_MODEL", "").strip() or "eleven_flash_v2_5",
         stt_model=os.getenv("ELEVENLABS_STT_MODEL", "").strip() or "scribe_v2",
         language=os.getenv("LANGUAGE", "").strip() or "de",
         ptt_mode=_choice("PTT_MODE", "hold", ("hold", "enter")),
-        ptt_key=os.getenv("PTT_KEY", "").strip().lower() or "space",
+        ptt_key=os.getenv("PTT_KEY", "").strip().lower() or "q+e",
         sample_rate=_int("SAMPLE_RATE", 16000),
         input_device=input_device,
     )

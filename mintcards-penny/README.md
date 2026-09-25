@@ -6,7 +6,7 @@ Penny, die Sprachassistentin im Jarvis-Stil für das Pokémon-Karten-Business **
 Mikrofon → ElevenLabs Scribe (STT) → Claude Sonnet → ElevenLabs TTS → Lautsprecher
 ```
 
-Taste gedrückt halten, sprechen, loslassen, Antwort hören. Der Verlauf der letzten 10 Turns bleibt im Speicher, damit Rückfragen funktionieren.
+**Q + E** gleichzeitig gedrückt halten, sprechen, loslassen, Antwort hören. Penny merkt sich die letzten 10 Turns in `penny_gedaechtnis.json`, auch über Neustarts hinweg.
 
 ## Dateien
 
@@ -93,8 +93,8 @@ python main.py --debug    # zusätzlich Token-Zahlen, Latenzen, Fehlerdetails
 python main.py --ohne-claude  # Test ohne Anthropic-Guthaben: Penny wiederholt nur, was sie verstanden hat
 ```
 
-- **Leertaste halten** = aufnehmen, **loslassen** = senden.
-- Sag **"neues Gespräch"**, um den Verlauf zu löschen.
+- **Q + E gleichzeitig halten** = aufnehmen, **eine davon loslassen** = senden.
+- Sag **"neues Gespräch"**, um Pennys Gedächtnis zu löschen (leert auch die Datei).
 - **Ctrl+C** beendet.
 
 Im Terminal wird jeder Turn mitgeloggt:
@@ -115,14 +115,24 @@ Hinweise zu `hold`:
 
 - **macOS:** Terminal (bzw. iTerm/VS Code) braucht unter *Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen* und *Eingabeüberwachung* die Freigabe.
 - **Linux:** funktioniert unter X11. Unter Wayland liefert `pynput` meist keine Tasten, dann `PTT_MODE=enter` nutzen.
-- Weil der Hotkey global ist, nimmt auch Leertaste in anderen Programmen auf. Wer das nicht will, setzt z. B. `PTT_KEY=f9` oder `PTT_KEY=ctrl_r`.
+- Weil der Hotkey global ist, startet Q + E auch in anderen Programmen eine Aufnahme, falls du beide gleichzeitig hältst. Beim normalen Tippen passiert das kaum, Aufnahmen unter 0,3 s werden verworfen.
+- Andere Taste oder Kombination: `PTT_KEY=f9`, `PTT_KEY=space`, `PTT_KEY=ctrl_r+alt_r` usw. Mehrere Tasten mit `+` verbinden.
+- Im Terminal werden gehaltene Tasten nicht mehr als "qeqeqe" angezeigt (macOS/Linux).
+
+## Gedächtnis
+
+Penny speichert den Verlauf nach jeder Antwort in `penny_gedaechtnis.json` im Projektordner und lädt ihn beim Start wieder. Gemerkt werden die letzten `HISTORY_TURNS` Turns (Standard 10). Mehr Turns bedeuten ein besseres Gedächtnis, kosten aber etwas mehr pro Frage.
+
+- Löschen: "neues Gespräch" sagen oder die Datei löschen.
+- Die Datei landet nie im Repo (steht in `.gitignore`).
+- Ist die Datei beschädigt, wird sie als `penny_gedaechtnis.defekt.json` gesichert und Penny startet mit leerem Gedächtnis.
 
 ## Fehlerbehebung
 
 | Problem | Lösung |
 |---|---|
 | `PortAudio library not found` | PortAudio installieren (siehe Installation) |
-| Keine Reaktion auf Leertaste | macOS-Rechte prüfen, unter Wayland `PTT_MODE=enter` |
+| Keine Reaktion auf Q + E | macOS-Rechte prüfen, unter Wayland `PTT_MODE=enter` |
 | Falsches Mikrofon | `python audio_input.py` zeigt Geräte, dann `INPUT_DEVICE=<Index>` |
 | `401` von ElevenLabs | API-Key oder dessen Berechtigungen (TTS/STT) prüfen |
 | `404` von ElevenLabs | Voice-ID prüfen |
@@ -132,5 +142,4 @@ Hinweise zu `hold`:
 
 - Wake-Word statt Push-to-Talk (Porcupine / OpenWakeWord)
 - Tool-Use: Preisabfrage, Einkaufsliste, Bestandsabfrage
-- Persistenter Verlauf über Neustarts (JSON)
 - Unterbrechbare Sprachausgabe (Barge-in), Grundlage ist `audio_output.stop()`

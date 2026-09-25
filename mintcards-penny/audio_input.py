@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+import sys
 import threading
 import wave
 
@@ -81,56 +82,108 @@ def to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
     return buf.getvalue()
 
 
-def _parse_key(name: str):
+def _key_id(key) -> str | None:
+    """Macht aus einem pynput-Key einen vergleichbaren Namen ("q", "space", "f9" ...)."""
+    char = getattr(key, "char", None)
+    if char:
+        return char.lower()
+    name = getattr(key, "name", None)
+    return name.lower() if name else None
+
+
+def parse_combo(spec: str) -> frozenset[str]:
+    """ "q+e" -> {"q", "e"}; "space" -> {"space"}. Prüft Sondertasten gegen pynput."""
     from pynput import keyboard
 
-    if len(name) == 1:
-        return keyboard.KeyCode.from_char(name)
-    try:
-        return getattr(keyboard.Key, name)
-    except AttributeError as exc:
-        raise ValueError(
-            f"Unbekannte PTT_KEY '{name}'. Beispiele: space, f9, ctrl_r, alt_r oder ein Buchstabe."
-        ) from exc
+    parts = [p.strip().lower() for p in spec.split("+") if p.strip()]
+    if not parts:
+        raise ValueError("PTT_KEY ist leer.")
+    for part in parts:
+        if len(part) > 1 and not hasattr(keyboard.Key, part):
+            raise ValueError(
+                f"Unbekannte Taste '{part}' in PTT_KEY. Beispiele: q+e, space, f9, ctrl_r "
+                "oder ein einzelner Buchstabe."
+            )
+    return frozenset(parts)
+
+
+class _TerminalEcho:
+    """Schaltet das Terminal-Echo ab, damit gehaltene Tasten nicht "qeqeqe" ins Fenster schreiben."""
+
+    def __init__(self):
+        self._saved = None
+        try:
+            import termios
+
+            if sys.stdin.isatty():
+                fd = sys.stdin.fileno()
+                self._saved = termios.tcgetattr(fd)
+                new = termios.tcgetattr(fd)
+                new[3] &= ~(termios.ECHO | termios.ICANON)
+                termios.tcsetattr(fd, termios.TCSADRAIN, new)
+        except (ImportError, OSError, ValueError):  # Windows oder kein echtes Terminal
+            self._saved = None
+
+    def flush_input(self) -> None:
+        """Verwirft Tastendrücke, die sich im Terminal angesammelt haben."""
+        if self._saved is None:
+            return
+        import termios
+
+        termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
+
+    def restore(self) -> None:
+        if self._saved is None:
+            return
+        import termios
+
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self._saved)
+        self._saved = None
 
 
 class PushToTalk:
     """Wartet auf eine Push-to-Talk-Eingabe und liefert die Aufnahme als WAV.
 
-    mode="hold":  Taste gedrückt halten = aufnehmen, loslassen = fertig.
-                  Nutzt pynput und reagiert auch, wenn das Terminal nicht im Fokus ist.
+    mode="hold":  Taste bzw. Tastenkombination (z. B. "q+e") gedrückt halten = aufnehmen,
+                  eine davon loslassen = fertig. Nutzt pynput und reagiert auch,
+                  wenn das Terminal nicht im Fokus ist.
     mode="enter": Enter startet, Enter stoppt. Läuft rein im Terminal.
     """
 
-    def __init__(self, recorder: Recorder, mode: str = "hold", key: str = "space"):
+    def __init__(self, recorder: Recorder, mode: str = "hold", key: str = "q+e"):
         self.recorder = recorder
         self.mode = mode
         self.key_name = key
         self._listener = None
+        self._echo = None
         self._armed = threading.Event()
         self._done = threading.Event()
         self._result: bytes | None = None
+        self._pressed: set[str] = set()
 
         if mode == "hold":
             from pynput import keyboard
 
-            self._key = _parse_key(key)
+            self._combo = parse_combo(key)
             self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
             self._listener.daemon = True
             self._listener.start()
+            self._echo = _TerminalEcho()
 
     @property
     def hint(self) -> str:
         if self.mode == "hold":
-            return f"[{self.key_name.upper()}] gedrückt halten und sprechen, loslassen zum Senden."
+            keys = " + ".join(p.strip().upper() for p in self.key_name.split("+") if p.strip())
+            return f"[{keys}] gedrückt halten und sprechen, loslassen zum Senden."
         return "[ENTER] drücken, sprechen, [ENTER] zum Senden."
 
     # --- pynput Callbacks (laufen im Listener-Thread) ---
-    def _matches(self, key) -> bool:
-        return key == self._key
-
     def _on_press(self, key):
-        if not self._armed.is_set() or not self._matches(key):
+        kid = _key_id(key)
+        if kid not in self._combo:
+            return
+        self._pressed.add(kid)
+        if not self._armed.is_set() or not self._combo <= self._pressed:
             return
         if not self.recorder.is_recording:  # Tasten-Autorepeat ignorieren
             try:
@@ -142,7 +195,11 @@ class PushToTalk:
                 self._done.set()
 
     def _on_release(self, key):
-        if not self._armed.is_set() or not self._matches(key) or not self.recorder.is_recording:
+        kid = _key_id(key)
+        if kid not in self._combo:
+            return
+        self._pressed.discard(kid)
+        if not self._armed.is_set() or not self.recorder.is_recording:
             return
         self._result = self.recorder.stop()
         self._armed.clear()
@@ -165,6 +222,8 @@ class PushToTalk:
             self._armed.clear()
             if self.recorder.is_recording:
                 self.recorder.stop()
+            if self._echo:
+                self._echo.flush_input()
         return self._result
 
     def _listen_enter(self) -> bytes | None:
@@ -180,11 +239,12 @@ class PushToTalk:
     def close(self) -> None:
         if self._listener is not None:
             self._listener.stop()
+        if self._echo:
+            self._echo.restore()
 
 
 if __name__ == "__main__":
     # Einzeltest: Mikrofon aufnehmen und als test_aufnahme.wav speichern.
-    import sys
     from pathlib import Path
 
     sys.path.insert(0, str(Path(__file__).parent))

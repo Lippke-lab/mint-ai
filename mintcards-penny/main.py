@@ -9,7 +9,7 @@ import time
 import anthropic
 from elevenlabs.core.api_error import ApiError as ElevenLabsError
 
-from claude_brain import ClaudeBrain, EchoBrain
+from claude_brain import ClaudeBrain, EchoBrain, Memory
 from config import REQUIRED_KEYS, SYSTEM_PROMPT_FILE, load_config_or_exit
 
 log = logging.getLogger("penny")
@@ -82,8 +82,11 @@ def main() -> int:
         return 2
 
     try:
-        brain = EchoBrain() if echo_mode else ClaudeBrain(cfg.anthropic_api_key, cfg.claude_model, SYSTEM_PROMPT_FILE,
-                            cfg.history_turns, cfg.claude_effort)
+        if echo_mode:
+            brain = EchoBrain()
+        else:
+            brain = ClaudeBrain(cfg.anthropic_api_key, cfg.claude_model, SYSTEM_PROMPT_FILE,
+                                cfg.history_turns, cfg.claude_effort, Memory(cfg.memory_file))
     except (FileNotFoundError, ValueError) as exc:
         print(f"[FEHLER] {exc}", file=sys.stderr)
         return 2
