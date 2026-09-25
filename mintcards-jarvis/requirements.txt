@@ -1,0 +1,6 @@
+anthropic>=1.0
+elevenlabs>=2.0
+python-dotenv>=1.0
+sounddevice>=0.4.6
+numpy>=1.26
+pynput>=1.7.6
