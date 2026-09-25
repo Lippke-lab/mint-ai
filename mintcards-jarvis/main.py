@@ -9,8 +9,8 @@ import time
 import anthropic
 from elevenlabs.core.api_error import ApiError as ElevenLabsError
 
-from claude_brain import ClaudeBrain
-from config import SYSTEM_PROMPT_FILE, load_config_or_exit
+from claude_brain import ClaudeBrain, EchoBrain
+from config import REQUIRED_KEYS, SYSTEM_PROMPT_FILE, load_config_or_exit
 
 log = logging.getLogger("jarvis")
 
@@ -35,7 +35,7 @@ def elevenlabs_error_text(exc: ElevenLabsError) -> str:
     return f"ElevenLabs-Fehler {exc.status_code}: {exc.body}"
 
 
-def run_turn(ptt, stt, brain: ClaudeBrain, tts, turn: int) -> None:
+def run_turn(ptt, stt, brain, tts, turn: int) -> None:
     wav = ptt.listen()
     if not wav:
         return
@@ -65,7 +65,10 @@ def run_turn(ptt, stt, brain: ClaudeBrain, tts, turn: int) -> None:
 
 def main() -> int:
     setup_logging()
-    cfg = load_config_or_exit()
+    # --ohne-claude: Jarvis wiederholt nur, was er verstanden hat (kein Anthropic-Key nötig)
+    echo_mode = "--ohne-claude" in sys.argv
+    required = tuple(k for k in REQUIRED_KEYS if not (echo_mode and k == "ANTHROPIC_API_KEY"))
+    cfg = load_config_or_exit(required)
 
     try:
         # Audio-Module erst nach der Key-Prüfung laden, damit Fehler klar getrennt sind.
@@ -79,7 +82,7 @@ def main() -> int:
         return 2
 
     try:
-        brain = ClaudeBrain(cfg.anthropic_api_key, cfg.claude_model, SYSTEM_PROMPT_FILE,
+        brain = EchoBrain() if echo_mode else ClaudeBrain(cfg.anthropic_api_key, cfg.claude_model, SYSTEM_PROMPT_FILE,
                             cfg.history_turns, cfg.claude_effort)
     except (FileNotFoundError, ValueError) as exc:
         print(f"[FEHLER] {exc}", file=sys.stderr)
@@ -95,7 +98,7 @@ def main() -> int:
         return 2
 
     print("\n=== MintCards Jarvis ===")
-    print(f"Modell: {cfg.claude_model} | Stimme: {cfg.tts_model} | STT: {cfg.stt_model}")
+    print(f"Modell: {'echo (ohne Claude)' if echo_mode else cfg.claude_model} | Stimme: {cfg.tts_model} | STT: {cfg.stt_model}")
     print(ptt.hint)
     print('Sag "neues Gespräch" zum Zurücksetzen. Ctrl+C beendet.\n')
 

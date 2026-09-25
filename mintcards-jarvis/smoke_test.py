@@ -40,12 +40,13 @@ def main() -> int:
     parser.add_argument("--question", default=os.getenv("SMOKE_QUESTION") or DEFAULT_QUESTION)
     args = parser.parse_args()
 
-    cfg = load_config_or_exit()
+    # Ohne ANTHROPIC_API_KEY wird der Claude-Schritt übersprungen, TTS/STT laufen trotzdem.
+    cfg = load_config_or_exit(require_keys=("ELEVENLABS_API_KEY", "ELEVENLABS_VOICE_ID"))
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     wav_path = out_dir / "jarvis_antwort.wav"
 
-    results: list[tuple[str, bool, str]] = []
+    results: list[tuple[str, bool | None, str]] = []  # None = übersprungen
 
     def step(name: str, fn):
         t0 = time.perf_counter()
@@ -86,18 +87,22 @@ def main() -> int:
             raise RuntimeError("Leeres Transkript")
         return f"{cfg.stt_model} erkennt: {text}"
 
-    step("Claude", claude)
+    if cfg.anthropic_api_key:
+        step("Claude", claude)
+    else:
+        results.append(("Claude", None, "übersprungen, kein ANTHROPIC_API_KEY gesetzt"))
+        print("[SKIP]   Claude: kein ANTHROPIC_API_KEY, nutze festen Testsatz")
     step("Sprachausgabe (TTS)", tts)
     step("Spracherkennung (STT)", stt)
 
-    ok = all(r[1] for r in results)
+    ok = all(r[1] is not False for r in results)
     summary = os.getenv("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as fh:
             fh.write("## MintCards Jarvis: API-Test\n\n| Schritt | Status | Details |\n|---|---|---|\n")
             for name, passed, detail in results:
                 safe = detail.replace("|", "\\|").replace("\n", " ")
-                fh.write(f"| {name} | {'✅' if passed else '❌'} | {safe} |\n")
+                fh.write(f"| {name} | {'⏭️' if passed is None else '✅' if passed else '❌'} | {safe} |\n")
             if wav_path.exists():
                 fh.write("\nDie Audiodatei liegt unten unter **Artifacts → jarvis-audio** zum Download.\n")
     print("\nERGEBNIS:", "alles ok" if ok else "mindestens ein Schritt fehlgeschlagen")

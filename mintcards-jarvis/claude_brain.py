@@ -79,6 +79,21 @@ class ClaudeBrain:
         return answer
 
 
+class EchoBrain:
+    """Ersatz-Hirn ohne API: wiederholt, was verstanden wurde.
+
+    Zum Testen von Mikrofon, Push-to-Talk, STT und TTS ohne Anthropic-Guthaben.
+    """
+
+    model = "echo (ohne Claude)"
+
+    def reset(self) -> None:
+        pass
+
+    def ask(self, user_text: str) -> str:
+        return f"Verstanden: {user_text}"
+
+
 if __name__ == "__main__":
     # Einzeltest: Text-Chat mit Claude im Terminal, ganz ohne Audio.
     import sys

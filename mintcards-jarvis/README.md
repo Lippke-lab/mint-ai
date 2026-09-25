@@ -83,13 +83,14 @@ Mikrofon und Lautsprecher lassen sich nur lokal testen. Die drei Dienste (Claude
 2. Im Tab **Actions** links **Jarvis API-Test** wählen → **Run workflow**. Optional eine eigene Testfrage eintragen.
 3. Nach ca. 1 Minute zeigt der Lauf eine Tabelle mit ✅/❌ pro Schritt. Unter **Artifacts → jarvis-audio** liegt Jarvis' gesprochene Antwort als WAV zum Anhören.
 
-Ablauf: Claude beantwortet die Testfrage, ElevenLabs spricht die Antwort, Scribe wandelt die Aufnahme zurück in Text. Lokal geht dasselbe mit `python smoke_test.py`.
+Ablauf: Claude beantwortet die Testfrage, ElevenLabs spricht die Antwort, Scribe wandelt die Aufnahme zurück in Text. Lokal geht dasselbe mit `python smoke_test.py`. Ohne `ANTHROPIC_API_KEY` wird der Claude-Schritt übersprungen (⏭️), TTS und STT werden trotzdem geprüft.
 
 ## 5. Starten
 
 ```bash
 python main.py            # normal
 python main.py --debug    # zusätzlich Token-Zahlen, Latenzen, Fehlerdetails
+python main.py --ohne-claude  # Test ohne Anthropic-Guthaben: Jarvis wiederholt nur, was er verstanden hat
 ```
 
 - **Leertaste halten** = aufnehmen, **loslassen** = senden.
