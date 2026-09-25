@@ -80,6 +80,7 @@ class ClaudeBrain:
         self.system_prompt_path = system_prompt_path
         self.system_prompt = load_system_prompt(system_prompt_path)
         self.history_turns = history_turns
+        self.last_usage: dict | None = None
         self.memory = memory
         self.history: list[dict] = memory.load() if memory else []  # abwechselnd user / assistant
         self._trim()
@@ -134,6 +135,7 @@ class ClaudeBrain:
         if not answer:
             answer = "Da ist mir gerade nichts eingefallen. Frag bitte nochmal."
 
+        self.last_usage = {"input": response.usage.input_tokens, "output": response.usage.output_tokens}
         log.debug("Tokens: in=%s out=%s cache_read=%s", response.usage.input_tokens,
                   response.usage.output_tokens, response.usage.cache_read_input_tokens)
 
@@ -150,6 +152,7 @@ class EchoBrain:
     """
 
     model = "echo (ohne Claude)"
+    last_usage = None
 
     def reset(self) -> None:
         pass

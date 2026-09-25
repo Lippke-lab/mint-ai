@@ -160,6 +160,7 @@ class PushToTalk:
         self._done = threading.Event()
         self._result: bytes | None = None
         self._pressed: set[str] = set()
+        self.on_start = None  # optionaler Callback, sobald die Aufnahme beginnt
 
         if mode == "hold":
             from pynput import keyboard
@@ -189,6 +190,8 @@ class PushToTalk:
             try:
                 self.recorder.start()
                 print("  ● Aufnahme läuft ...", flush=True)
+                if self.on_start:
+                    self.on_start()
             except Exception as exc:  # noqa: BLE001
                 log.error("Mikrofon konnte nicht gestartet werden: %s", exc)
                 self._result = None
@@ -230,6 +233,8 @@ class PushToTalk:
         input()
         self.recorder.start()
         print("  ● Aufnahme läuft ... [ENTER] zum Senden", flush=True)
+        if self.on_start:
+            self.on_start()
         try:
             input()
         finally:

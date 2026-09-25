@@ -1,4 +1,4 @@
-"""MintCards Penny: Push-to-Talk -> ElevenLabs STT -> Claude -> ElevenLabs TTS."""
+"""MintCards Penny: Push-to-Talk -> ElevenLabs STT -> Claude -> ElevenLabs TTS, plus Dashboard."""
 
 from __future__ import annotations
 
@@ -9,13 +9,11 @@ import time
 import anthropic
 from elevenlabs.core.api_error import ApiError as ElevenLabsError
 
+from assistant import Penny
 from claude_brain import ClaudeBrain, EchoBrain, Memory
 from config import REQUIRED_KEYS, SYSTEM_PROMPT_FILE, load_config_or_exit
 
 log = logging.getLogger("penny")
-
-# Sprachbefehle, die lokal verarbeitet werden, ohne Claude zu fragen.
-RESET_COMMANDS = ("neues gespräch", "vergiss alles", "reset")
 
 
 def setup_logging() -> None:
@@ -35,32 +33,21 @@ def elevenlabs_error_text(exc: ElevenLabsError) -> str:
     return f"ElevenLabs-Fehler {exc.status_code}: {exc.body}"
 
 
-def run_turn(ptt, stt, brain, tts, turn: int) -> None:
+def run_turn(ptt, stt, penny: Penny) -> None:
     wav = ptt.listen()
     if not wav:
+        penny.set_state("bereit")
         return
 
+    penny.set_state("versteht")
     t0 = time.perf_counter()
     text = stt.transcribe(wav)
-    t_stt = time.perf_counter() - t0
+    t_stt = round(time.perf_counter() - t0, 2)
     if not text:
         log.info("Nichts verstanden.")
+        penny.set_state("bereit")
         return
-    log.info("[%d] DU     (%.1fs STT): %s", turn, t_stt, text)
-
-    if text.lower().strip(" .!?") in RESET_COMMANDS:
-        brain.reset()
-        log.info("[%d] Verlauf gelöscht.", turn)
-        tts.speak("Erledigt. Wir fangen von vorne an.")
-        return
-
-    t0 = time.perf_counter()
-    answer = brain.ask(text)
-    log.info("[%d] PENNY  (%.1fs Claude): %s", turn, time.perf_counter() - t0, answer)
-
-    t0 = time.perf_counter()
-    tts.speak(answer)
-    log.debug("TTS + Wiedergabe: %.1fs", time.perf_counter() - t0)
+    penny.respond(text, quelle="stimme", dauer={"stt": t_stt})
 
 
 def main() -> int:
@@ -100,17 +87,39 @@ def main() -> int:
               "Tipp: Setze PTT_MODE=enter in der .env.", file=sys.stderr)
         return 2
 
+    modell = "echo (ohne Claude)" if echo_mode else cfg.claude_model
+    penny = Penny(brain, tts, info={
+        "modell": modell, "stimme": cfg.tts_model, "stt": cfg.stt_model,
+        "taste": ptt.hint.split("]")[0].lstrip("[") if cfg.ptt_mode == "hold" else "Enter",
+        "modus": "Sprache + Dashboard", "gedaechtnis_max": cfg.history_turns,
+    })
+    ptt.on_start = lambda: penny.set_state("hoert_zu")
+
+    dash = None
+    if cfg.dashboard and "--kein-dashboard" not in sys.argv:
+        from dashboard import Dashboard, open_browser
+        from mintcards_data import MintCardsData
+
+        try:
+            dash = Dashboard(penny, MintCardsData(cfg.data_dir), cfg.dashboard_port)
+            dash.start()
+            if cfg.dashboard_open:
+                open_browser(dash.url)
+        except OSError as exc:
+            log.error("Dashboard konnte nicht starten (Port %s belegt?): %s", cfg.dashboard_port, exc)
+            dash = None
+
     print("\n=== MintCards Penny ===")
-    print(f"Modell: {'echo (ohne Claude)' if echo_mode else cfg.claude_model} | Stimme: {cfg.tts_model} | STT: {cfg.stt_model}")
+    print(f"Modell: {modell} | Stimme: {cfg.tts_model} | STT: {cfg.stt_model}")
+    if dash:
+        print(f"Dashboard: {dash.url}")
     print(ptt.hint)
     print('Sag "neues Gespräch" zum Zurücksetzen. Ctrl+C beendet.\n')
 
-    turn = 0
     try:
         while True:
-            turn += 1
             try:
-                run_turn(ptt, stt, brain, tts, turn)
+                run_turn(ptt, stt, penny)
             except anthropic.AuthenticationError:
                 log.error("Anthropic lehnt den API-Key ab. Prüfe ANTHROPIC_API_KEY.")
                 return 1
@@ -122,6 +131,7 @@ def main() -> int:
                 log.error("Keine Verbindung zur Anthropic API. Internet prüfen.")
             except ElevenLabsError as exc:
                 log.error(elevenlabs_error_text(exc))
+                penny.set_state("fehler", elevenlabs_error_text(exc))
                 if exc.status_code == 401:
                     return 1
             except OSError as exc:  # Audio-Geräte, Netzwerk-Sockets
@@ -135,6 +145,8 @@ def main() -> int:
         return 0
     finally:
         ptt.close()
+        if dash:
+            dash.stop()
 
 
 if __name__ == "__main__":

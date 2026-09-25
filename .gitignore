@@ -6,3 +6,4 @@ venv/
 *.wav
 penny_gedaechtnis*.json
 *.tmp
+mintcards-penny/daten/
